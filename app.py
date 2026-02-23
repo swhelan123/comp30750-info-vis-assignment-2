@@ -1,0 +1,1195 @@
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+from plotly.subplots import make_subplots
+
+# ==========================================
+# 1. PAGE CONFIGURATION & EPIC STYLING
+# ==========================================
+st.set_page_config(
+    page_title="Lichess Insights Dashboard",
+    page_icon="♟️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Epic dark theme CSS
+st.markdown(
+    """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    /* ---- Global Dark Theme ---- */
+    .stApp {
+        background: linear-gradient(160deg, #0a0a0f 0%, #0d1117 40%, #0f0a1a 70%, #0a0a0f 100%);
+        color: #e6edf3;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%) !important;
+        border-right: 1px solid rgba(99, 102, 241, 0.15);
+    }
+    section[data-testid="stSidebar"] .stMarkdown p,
+    section[data-testid="stSidebar"] .stMarkdown li,
+    section[data-testid="stSidebar"] label {
+        color: #c9d1d9 !important;
+    }
+
+    /* Hero Title */
+    .hero-title {
+        font-family: 'Orbitron', monospace;
+        font-size: 2.6rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #a78bfa 0%, #818cf8 25%, #6366f1 50%, #c084fc 75%, #a78bfa 100%);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradient-shift 4s ease infinite;
+        text-align: center;
+        padding: 0.5rem 0 0.2rem 0;
+        letter-spacing: 2px;
+        line-height: 1.2;
+    }
+    .hero-subtitle {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.05rem;
+        color: #8b949e;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-weight: 300;
+        letter-spacing: 0.5px;
+    }
+
+    @keyframes gradient-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* KPI Cards */
+    .kpi-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 1.2rem 0 2rem 0;
+    }
+    .kpi-card {
+        background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 100%);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 16px;
+        padding: 1.2rem 1.8rem;
+        text-align: center;
+        min-width: 180px;
+        flex: 1;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #6366f1, #a78bfa, #c084fc);
+        border-radius: 16px 16px 0 0;
+    }
+    .kpi-card:hover {
+        border-color: rgba(99,102,241,0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(99,102,241,0.15);
+    }
+    .kpi-icon {
+        font-size: 1.8rem;
+        margin-bottom: 0.3rem;
+    }
+    .kpi-value {
+        font-family: 'Orbitron', monospace;
+        font-size: 1.7rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #a78bfa, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .kpi-label {
+        font-family: 'Inter', sans-serif;
+        font-size: 0.78rem;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-top: 0.2rem;
+        font-weight: 500;
+    }
+
+    /* Section Headers */
+    .section-header {
+        font-family: 'Orbitron', monospace;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #c9d1d9;
+        padding: 1rem 0 0.3rem 0;
+        border-bottom: 2px solid rgba(99,102,241,0.3);
+        margin: 2.5rem 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .section-header .num {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 700;
+    }
+    .section-desc {
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+        color: #8b949e;
+        margin: 0.4rem 0 1.2rem 0;
+        line-height: 1.6;
+        font-weight: 300;
+    }
+
+    /* Insight callouts */
+    .insight-box {
+        background: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(16,185,129,0.04) 100%);
+        border-left: 3px solid #22c55e;
+        border-radius: 0 12px 12px 0;
+        padding: 0.9rem 1.2rem;
+        margin: 0.8rem 0 1.5rem 0;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.88rem;
+        color: #a7f3d0;
+        line-height: 1.6;
+    }
+    .insight-box strong {
+        color: #4ade80;
+    }
+
+    /* Warning callout */
+    .warning-box {
+        background: linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(245,158,11,0.04) 100%);
+        border-left: 3px solid #f59e0b;
+        border-radius: 0 12px 12px 0;
+        padding: 0.9rem 1.2rem;
+        margin: 0.8rem 0 1.5rem 0;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.88rem;
+        color: #fde68a;
+        line-height: 1.6;
+    }
+
+    /* Divider */
+    .epic-divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent);
+        margin: 2rem 0;
+        border: none;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #484f58;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        margin-top: 3rem;
+        padding: 1.5rem 0;
+        border-top: 1px solid rgba(99,102,241,0.1);
+    }
+
+    /* Streamlit overrides */
+    .stSelectbox label, .stMultiSelect label, .stSlider label, .stRadio label {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        color: #c9d1d9 !important;
+    }
+    div[data-testid="stMetric"] {
+        background: rgba(99,102,241,0.05);
+        border: 1px solid rgba(99,102,241,0.15);
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        color: #8b949e;
+        background: transparent;
+        border-radius: 8px 8px 0 0;
+        padding: 0.5rem 1.2rem;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #a78bfa !important;
+        border-bottom: 2px solid #6366f1;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# ==========================================
+# 2. DATA LOADING
+# ==========================================
+@st.cache_data
+def load_data():
+    df_scatter = pd.read_csv("task1_scatter.csv")
+    df_tiers = pd.read_csv("task2_tiers.csv")
+    df_openings = pd.read_csv("task3_openings.csv")
+    return df_scatter, df_tiers, df_openings
+
+
+df_scatter, df_tiers, df_openings = load_data()
+
+# ==========================================
+# 3. PLOTLY THEME (Dark Epic)
+# ==========================================
+PLOTLY_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(13,17,23,0.6)",
+    font=dict(family="Inter, sans-serif", color="#c9d1d9", size=12),
+    title_font=dict(family="Orbitron, monospace", size=16, color="#e6edf3"),
+    legend=dict(
+        bgcolor="rgba(22,27,34,0.8)",
+        bordercolor="rgba(99,102,241,0.2)",
+        borderwidth=1,
+        font=dict(size=11),
+    ),
+    margin=dict(t=60, b=50, l=60, r=30),
+    hoverlabel=dict(
+        bgcolor="#1c2128",
+        bordercolor="rgba(99,102,241,0.4)",
+        font=dict(family="JetBrains Mono, monospace", size=12, color="#e6edf3"),
+    ),
+)
+
+COLORS = {
+    "primary": "#6366f1",
+    "secondary": "#a78bfa",
+    "accent": "#c084fc",
+    "success": "#22c55e",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "white_piece": "#e2e8f0",
+    "black_piece": "#6366f1",
+    "draw": "#f59e0b",
+    "mate": "#ef4444",
+    "resign": "#f97316",
+    "outoftime": "#22d3ee",
+    "draw_status": "#a78bfa",
+}
+
+VICTORY_COLORS = {
+    "mate": "#ef4444",
+    "resign": "#f97316",
+    "outoftime": "#22d3ee",
+    "draw": "#a78bfa",
+}
+
+# ==========================================
+# 4. HERO HEADER
+# ==========================================
+st.markdown('<div class="hero-title">♟️ LICHESS INSIGHTS</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="hero-subtitle">An interactive exploration of skill, advantage & strategy across 20,000 online chess games</div>',
+    unsafe_allow_html=True,
+)
+
+# ==========================================
+# 5. KPI HERO CARDS
+# ==========================================
+total_games = len(df_scatter)
+avg_turns = df_scatter["turns"].mean()
+avg_rating_diff = df_scatter["rating_diff"].abs().mean()
+mate_pct = len(df_scatter[df_scatter["victory_status"] == "mate"]) / total_games * 100
+resign_pct = (
+    len(df_scatter[df_scatter["victory_status"] == "resign"]) / total_games * 100
+)
+white_wins_total = df_tiers[df_tiers["winner"] == "white"]["game_count"].sum()
+black_wins_total = df_tiers[df_tiers["winner"] == "black"]["game_count"].sum()
+white_adv = white_wins_total / (white_wins_total + black_wins_total) * 100
+
+st.markdown(
+    f"""
+<div class="kpi-container">
+    <div class="kpi-card">
+        <div class="kpi-icon">🎮</div>
+        <div class="kpi-value">{total_games:,}</div>
+        <div class="kpi-label">Games Analyzed</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">⚔️</div>
+        <div class="kpi-value">{avg_turns:.0f}</div>
+        <div class="kpi-label">Avg Turns / Game</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">📊</div>
+        <div class="kpi-value">{avg_rating_diff:.0f}</div>
+        <div class="kpi-label">Avg Rating Gap</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">🏁</div>
+        <div class="kpi-value">{mate_pct:.1f}%</div>
+        <div class="kpi-label">End in Checkmate</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">🏳️</div>
+        <div class="kpi-value">{resign_pct:.1f}%</div>
+        <div class="kpi-label">End in Resign</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">⚪</div>
+        <div class="kpi-value">{white_adv:.1f}%</div>
+        <div class="kpi-label">White Win Rate</div>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 6. SIDEBAR
+# ==========================================
+with st.sidebar:
+    st.markdown("## ♟️ Dashboard Controls")
+    st.markdown("---")
+
+    st.markdown("### 🎯 Task 1 Filters")
+    status_filter = st.multiselect(
+        "Victory Status",
+        options=sorted(df_scatter["victory_status"].unique()),
+        default=sorted(df_scatter["victory_status"].unique()),
+        help="Filter game outcomes in the scatterplot",
+    )
+
+    max_turns_limit = int(df_scatter["turns"].max())
+    turn_range = st.slider(
+        "Turn Range",
+        min_value=1,
+        max_value=max_turns_limit,
+        value=(1, max_turns_limit),
+        help="Filter games by number of turns",
+    )
+
+    rating_diff_abs_max = int(df_scatter["rating_diff"].abs().max())
+    rating_diff_range = st.slider(
+        "Absolute Rating Difference",
+        min_value=0,
+        max_value=rating_diff_abs_max,
+        value=(0, rating_diff_abs_max),
+        help="Filter by absolute rating gap between players",
+    )
+
+    st.markdown("---")
+    st.markdown("### 📊 Task 2 Options")
+    show_draws_task2 = st.checkbox("Include Draws", value=True, help="Show draw counts")
+    show_net_advantage = st.checkbox(
+        "Show Net Advantage", value=True, help="Overlay net white advantage"
+    )
+
+    st.markdown("---")
+    st.markdown("### 🫧 Task 3 Options")
+    top_n_openings = st.slider(
+        "Number of Openings",
+        min_value=5,
+        max_value=15,
+        value=12,
+        help="How many openings to display",
+    )
+    show_draw_rates = st.checkbox(
+        "Show Draw Rates", value=False, help="Overlay draw rates on the chart"
+    )
+
+    st.markdown("---")
+    st.markdown(
+        """
+    <div style="text-align:center; color:#484f58; font-size:0.75rem; margin-top:1rem;">
+        Built with Streamlit & Plotly<br/>
+        Data: Lichess Open Database
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+# ==========================================
+# 7. VIZ 1: SCATTERPLOT — Anatomy of a Quick Crush
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">01</span> The Anatomy of a Quick Crush</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Does a larger skill gap result in a faster game? This chart maps the rating differential against game length, colored by how the game ended. Look for the telltale funnel shape — mismatches end fast.</div>',
+    unsafe_allow_html=True,
+)
+
+# Apply filters
+filtered_scatter = df_scatter[
+    (df_scatter["victory_status"].isin(status_filter))
+    & (df_scatter["turns"] >= turn_range[0])
+    & (df_scatter["turns"] <= turn_range[1])
+    & (df_scatter["rating_diff"].abs() >= rating_diff_range[0])
+    & (df_scatter["rating_diff"].abs() <= rating_diff_range[1])
+]
+
+tab1a, tab1b, tab1c = st.tabs(
+    ["🔬 Scatter Plot", "🌡️ Heatmap Density", "📈 Distribution"]
+)
+
+with tab1a:
+    fig1 = px.scatter(
+        filtered_scatter,
+        x="rating_diff",
+        y="turns",
+        color="victory_status",
+        opacity=0.4,
+        title="Game Length vs. Skill Gap",
+        labels={
+            "rating_diff": "Rating Differential (White − Black)",
+            "turns": "Number of Turns",
+            "victory_status": "Victory Reason",
+        },
+        color_discrete_map=VICTORY_COLORS,
+    )
+    fig1.update_traces(marker=dict(size=4, line=dict(width=0)))
+    fig1.update_layout(**PLOTLY_LAYOUT)
+    fig1.update_layout(
+        xaxis=dict(
+            gridcolor="rgba(99,102,241,0.07)",
+            zeroline=True,
+            zerolinecolor="rgba(255,255,255,0.15)",
+            zerolinewidth=1,
+        ),
+        yaxis=dict(gridcolor="rgba(99,102,241,0.07)"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    # Add annotation for the "evenly matched" zone
+    fig1.add_vrect(
+        x0=-50,
+        x1=50,
+        fillcolor="rgba(99,102,241,0.04)",
+        layer="below",
+        line_width=0,
+        annotation_text="Evenly Matched",
+        annotation_position="top",
+        annotation_font=dict(size=10, color="#6366f1"),
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+with tab1b:
+    fig1_heat = go.Figure()
+    fig1_heat.add_trace(
+        go.Histogram2d(
+            x=filtered_scatter["rating_diff"],
+            y=filtered_scatter["turns"],
+            colorscale=[
+                [0, "rgba(13,17,23,1)"],
+                [0.1, "#1e1b4b"],
+                [0.3, "#4338ca"],
+                [0.5, "#6366f1"],
+                [0.7, "#a78bfa"],
+                [0.9, "#c084fc"],
+                [1, "#f0abfc"],
+            ],
+            nbinsx=80,
+            nbinsy=60,
+            colorbar=dict(title="Count", tickfont=dict(color="#8b949e")),
+            hovertemplate="Rating Diff: %{x}<br>Turns: %{y}<br>Count: %{z}<extra></extra>",
+        )
+    )
+    fig1_heat.update_layout(**PLOTLY_LAYOUT)
+    fig1_heat.update_layout(
+        title="Game Density Heatmap: Where Do Most Games Live?",
+        xaxis_title="Rating Differential (White − Black)",
+        yaxis_title="Number of Turns",
+        xaxis=dict(gridcolor="rgba(99,102,241,0.05)"),
+        yaxis=dict(gridcolor="rgba(99,102,241,0.05)"),
+    )
+    st.plotly_chart(fig1_heat, use_container_width=True)
+
+with tab1c:
+    # Marginal distributions
+    fig1_dist = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=("Turns Distribution by Outcome", "Rating Diff Distribution"),
+        horizontal_spacing=0.08,
+    )
+    for vs in sorted(filtered_scatter["victory_status"].unique()):
+        subset = filtered_scatter[filtered_scatter["victory_status"] == vs]
+        color = VICTORY_COLORS.get(vs, "#6366f1")
+        fig1_dist.add_trace(
+            go.Violin(
+                y=subset["turns"],
+                name=vs.title(),
+                line_color=color,
+                fillcolor=color,
+                opacity=0.6,
+                meanline_visible=True,
+                box_visible=True,
+                showlegend=True,
+            ),
+            row=1,
+            col=1,
+        )
+    fig1_dist.add_trace(
+        go.Histogram(
+            x=filtered_scatter["rating_diff"],
+            nbinsx=80,
+            marker_color="#6366f1",
+            opacity=0.7,
+            name="Rating Diff",
+            showlegend=False,
+            hovertemplate="Rating Diff: %{x}<br>Count: %{y}<extra></extra>",
+        ),
+        row=1,
+        col=2,
+    )
+    fig1_dist.update_layout(**PLOTLY_LAYOUT)
+    fig1_dist.update_layout(
+        title="Distribution Deep Dive",
+        height=450,
+        showlegend=True,
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.08, xanchor="center", x=0.25
+        ),
+    )
+    fig1_dist.update_yaxes(
+        title_text="Turns", row=1, col=1, gridcolor="rgba(99,102,241,0.07)"
+    )
+    fig1_dist.update_yaxes(
+        title_text="Count", row=1, col=2, gridcolor="rgba(99,102,241,0.07)"
+    )
+    fig1_dist.update_xaxes(gridcolor="rgba(99,102,241,0.07)", row=1, col=1)
+    fig1_dist.update_xaxes(
+        title_text="Rating Diff",
+        gridcolor="rgba(99,102,241,0.07)",
+        row=1,
+        col=2,
+    )
+    st.plotly_chart(fig1_dist, use_container_width=True)
+
+# Insight box for Task 1
+mate_games = filtered_scatter[filtered_scatter["victory_status"] == "mate"]
+resign_games = filtered_scatter[filtered_scatter["victory_status"] == "resign"]
+avg_mate_turns = mate_games["turns"].mean() if len(mate_games) > 0 else 0
+avg_resign_turns = resign_games["turns"].mean() if len(resign_games) > 0 else 0
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> Checkmates average <strong>{avg_mate_turns:.0f} turns</strong> while
+    resignations average <strong>{avg_resign_turns:.0f} turns</strong>. Players who see the end coming
+    tend to resign before the inevitable mate — the skill gap creates a "funnel of doom" where
+    large differentials cluster in the lower-left and lower-right corners.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 8. VIZ 2: DIVERGING BAR — White Advantage
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">02</span> The Myth of the White Advantage</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Does playing White actually yield a higher win rate? We break it down by skill tier to see if this advantage is universal or concentrated at certain levels.</div>',
+    unsafe_allow_html=True,
+)
+
+tab2a, tab2b = st.tabs(["📊 Diverging Bar Chart", "🎯 Win Rate Comparison"])
+
+# Prepare data
+tier_order = [
+    "1. Novice (<1200)",
+    "2. Intermediate (1200-1499)",
+    "3. Advanced (1500-1799)",
+    "4. Master (1800+)",
+]
+
+with tab2a:
+    fig2 = go.Figure()
+
+    for tier in tier_order:
+        tier_data = df_tiers[df_tiers["rating_tier"] == tier]
+        white_count = tier_data[tier_data["winner"] == "white"]["game_count"].values
+        black_count = tier_data[tier_data["winner"] == "black"]["game_count"].values
+        draw_count = tier_data[tier_data["winner"] == "draw"]["game_count"].values
+        wc = int(white_count[0]) if len(white_count) > 0 else 0
+        bc = int(black_count[0]) if len(black_count) > 0 else 0
+        dc = int(draw_count[0]) if len(draw_count) > 0 else 0
+
+        # Friendly tier name
+        friendly = tier.split(". ")[1] if ". " in tier else tier
+
+        # White wins (positive)
+        fig2.add_trace(
+            go.Bar(
+                y=[friendly],
+                x=[wc],
+                orientation="h",
+                name="White Wins" if tier == tier_order[0] else None,
+                marker=dict(
+                    color="#e2e8f0",
+                    line=dict(color="#f8fafc", width=1),
+                ),
+                text=[f"⚪ {wc:,}"],
+                textposition="inside",
+                textfont=dict(color="#0d1117", size=12, family="JetBrains Mono"),
+                hovertemplate=f"<b>{friendly}</b><br>White Wins: {wc:,}<extra></extra>",
+                showlegend=(tier == tier_order[0]),
+                legendgroup="white",
+            )
+        )
+
+        # Black wins (negative)
+        fig2.add_trace(
+            go.Bar(
+                y=[friendly],
+                x=[-bc],
+                orientation="h",
+                name="Black Wins" if tier == tier_order[0] else None,
+                marker=dict(
+                    color="#6366f1",
+                    line=dict(color="#818cf8", width=1),
+                ),
+                text=[f"⚫ {bc:,}"],
+                textposition="inside",
+                textfont=dict(color="#e6edf3", size=12, family="JetBrains Mono"),
+                hovertemplate=f"<b>{friendly}</b><br>Black Wins: {bc:,}<extra></extra>",
+                showlegend=(tier == tier_order[0]),
+                legendgroup="black",
+            )
+        )
+
+        # Draws
+        if show_draws_task2 and dc > 0:
+            fig2.add_trace(
+                go.Bar(
+                    y=[friendly],
+                    x=[dc],
+                    orientation="h",
+                    name="Draws" if tier == tier_order[0] else None,
+                    marker=dict(
+                        color="#f59e0b",
+                        line=dict(color="#fbbf24", width=1),
+                    ),
+                    text=[f"½ {dc}"],
+                    textposition="outside",
+                    textfont=dict(color="#f59e0b", size=10, family="JetBrains Mono"),
+                    hovertemplate=f"<b>{friendly}</b><br>Draws: {dc:,}<extra></extra>",
+                    showlegend=(tier == tier_order[0]),
+                    legendgroup="draw",
+                    base=wc,
+                )
+            )
+
+    # Net advantage annotations
+    if show_net_advantage:
+        for tier in tier_order:
+            tier_data = df_tiers[df_tiers["rating_tier"] == tier]
+            white_count = tier_data[tier_data["winner"] == "white"]["game_count"].values
+            black_count = tier_data[tier_data["winner"] == "black"]["game_count"].values
+            wc = int(white_count[0]) if len(white_count) > 0 else 0
+            bc = int(black_count[0]) if len(black_count) > 0 else 0
+            net = wc - bc
+            friendly = tier.split(". ")[1] if ". " in tier else tier
+            total = wc + bc
+            pct = (wc / total * 100) if total > 0 else 50
+            sign = "+" if net > 0 else ""
+            fig2.add_annotation(
+                x=max(wc, bc) + 350,
+                y=friendly,
+                text=f"<b>{pct:.1f}%</b> W  ({sign}{net})",
+                showarrow=False,
+                font=dict(
+                    size=11,
+                    color="#22c55e" if net > 0 else "#ef4444",
+                    family="JetBrains Mono",
+                ),
+            )
+
+    fig2.update_layout(**PLOTLY_LAYOUT)
+    fig2.update_layout(
+        barmode="relative",
+        title="White vs. Black Wins by Skill Tier",
+        xaxis=dict(
+            title="← Black Wins  |  White Wins →",
+            gridcolor="rgba(99,102,241,0.07)",
+            zeroline=True,
+            zerolinecolor="rgba(255,255,255,0.2)",
+            zerolinewidth=2,
+        ),
+        yaxis=dict(
+            title="",
+            categoryorder="array",
+            categoryarray=[t.split(". ")[1] for t in tier_order],
+        ),
+        height=400,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+with tab2b:
+    # Win Rate dot plot (dumbbell-style)
+    fig2b = go.Figure()
+
+    for i, tier in enumerate(tier_order):
+        tier_data = df_tiers[df_tiers["rating_tier"] == tier]
+        white_count = tier_data[tier_data["winner"] == "white"]["game_count"].values
+        black_count = tier_data[tier_data["winner"] == "black"]["game_count"].values
+        draw_count = tier_data[tier_data["winner"] == "draw"]["game_count"].values
+        wc = int(white_count[0]) if len(white_count) > 0 else 0
+        bc = int(black_count[0]) if len(black_count) > 0 else 0
+        dc = int(draw_count[0]) if len(draw_count) > 0 else 0
+        total = wc + bc + dc
+        w_pct = wc / total * 100
+        b_pct = bc / total * 100
+        d_pct = dc / total * 100
+        friendly = tier.split(". ")[1] if ". " in tier else tier
+
+        # Connecting line
+        fig2b.add_trace(
+            go.Scatter(
+                x=[b_pct, w_pct],
+                y=[friendly, friendly],
+                mode="lines",
+                line=dict(color="rgba(99,102,241,0.4)", width=3),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+        # White dot
+        fig2b.add_trace(
+            go.Scatter(
+                x=[w_pct],
+                y=[friendly],
+                mode="markers+text",
+                marker=dict(
+                    size=18, color="#e2e8f0", line=dict(color="#f8fafc", width=2)
+                ),
+                text=[f"{w_pct:.1f}%"],
+                textposition="top center",
+                textfont=dict(color="#e2e8f0", size=11, family="JetBrains Mono"),
+                name="White Win %" if i == 0 else None,
+                showlegend=(i == 0),
+                legendgroup="white_pct",
+                hovertemplate=f"<b>{friendly}</b><br>White: {w_pct:.1f}%<extra></extra>",
+            )
+        )
+
+        # Black dot
+        fig2b.add_trace(
+            go.Scatter(
+                x=[b_pct],
+                y=[friendly],
+                mode="markers+text",
+                marker=dict(
+                    size=18, color="#6366f1", line=dict(color="#818cf8", width=2)
+                ),
+                text=[f"{b_pct:.1f}%"],
+                textposition="bottom center",
+                textfont=dict(color="#a78bfa", size=11, family="JetBrains Mono"),
+                name="Black Win %" if i == 0 else None,
+                showlegend=(i == 0),
+                legendgroup="black_pct",
+                hovertemplate=f"<b>{friendly}</b><br>Black: {b_pct:.1f}%<extra></extra>",
+            )
+        )
+
+    # 50% reference line
+    fig2b.add_vline(
+        x=50,
+        line_width=1,
+        line_dash="dot",
+        line_color="rgba(255,255,255,0.15)",
+        annotation_text="50%",
+        annotation_font=dict(color="#484f58", size=10),
+    )
+
+    fig2b.update_layout(**PLOTLY_LAYOUT)
+    fig2b.update_layout(
+        title="Dumbbell Chart: White vs. Black Win Rate by Tier",
+        xaxis=dict(
+            title="Win Rate (%)",
+            range=[25, 65],
+            gridcolor="rgba(99,102,241,0.07)",
+        ),
+        yaxis=dict(
+            title="",
+            categoryorder="array",
+            categoryarray=[t.split(". ")[1] for t in tier_order],
+        ),
+        height=420,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig2b, use_container_width=True)
+
+# Insight for Task 2
+tier_advantages = []
+for tier in tier_order:
+    td = df_tiers[df_tiers["rating_tier"] == tier]
+    wc = td[td["winner"] == "white"]["game_count"].values
+    bc = td[td["winner"] == "black"]["game_count"].values
+    w = int(wc[0]) if len(wc) > 0 else 0
+    b = int(bc[0]) if len(bc) > 0 else 0
+    total = w + b
+    tier_advantages.append((tier.split(". ")[1], w / total * 100 if total > 0 else 50))
+
+max_adv_tier = max(tier_advantages, key=lambda x: x[1])
+min_adv_tier = min(tier_advantages, key=lambda x: x[1])
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> White's advantage is real but modest. The largest edge belongs to
+    <strong>{max_adv_tier[0]}</strong> players ({max_adv_tier[1]:.1f}% white win rate), while
+    <strong>{min_adv_tier[0]}</strong> players show the smallest gap ({min_adv_tier[1]:.1f}%).
+    The first-move advantage appears to be a consistent structural feature across all skill levels.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 9. VIZ 3: OPENING ANALYSIS
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">03</span> Opening Popularity vs. Effectiveness</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Are the most popular openings actually the most successful? We compare White\'s win rate against total popularity, sized by volume. The red dashed line marks 50% — anything to its right favors White.</div>',
+    unsafe_allow_html=True,
+)
+
+# Prepare opening data
+opening_stats = []
+for name in df_openings["opening_name"].unique():
+    subset = df_openings[df_openings["opening_name"] == name]
+    total = subset["total_games"].iloc[0]
+    white_wins = subset[subset["winner"] == "white"]["outcome_count"].values
+    black_wins = subset[subset["winner"] == "black"]["outcome_count"].values
+    draws = subset[subset["winner"] == "draw"]["outcome_count"].values
+    ww = int(white_wins[0]) if len(white_wins) > 0 else 0
+    bw = int(black_wins[0]) if len(black_wins) > 0 else 0
+    dd = int(draws[0]) if len(draws) > 0 else 0
+    opening_stats.append(
+        {
+            "opening": name,
+            "total_games": total,
+            "white_wins": ww,
+            "black_wins": bw,
+            "draws": dd,
+            "white_wr": ww / total * 100 if total > 0 else 50,
+            "black_wr": bw / total * 100 if total > 0 else 50,
+            "draw_rate": dd / total * 100 if total > 0 else 0,
+        }
+    )
+
+df_ops = pd.DataFrame(opening_stats).sort_values("total_games", ascending=False)
+df_ops_top = df_ops.head(top_n_openings).sort_values("total_games", ascending=True)
+
+tab3a, tab3b = st.tabs(["🫧 Bubble Chart", "⚖️ Win Rate Breakdown"])
+
+with tab3a:
+    fig3 = go.Figure()
+
+    fig3.add_trace(
+        go.Scatter(
+            x=df_ops_top["white_wr"],
+            y=df_ops_top["opening"],
+            mode="markers+text",
+            marker=dict(
+                size=df_ops_top["total_games"] / df_ops_top["total_games"].max() * 50
+                + 10,
+                color=df_ops_top["white_wr"],
+                colorscale=[
+                    [0, "#ef4444"],
+                    [0.35, "#f97316"],
+                    [0.5, "#eab308"],
+                    [0.65, "#22d3ee"],
+                    [1, "#22c55e"],
+                ],
+                cmin=df_ops_top["white_wr"].min() - 2,
+                cmax=df_ops_top["white_wr"].max() + 2,
+                colorbar=dict(
+                    title=dict(text="White WR%", font=dict(size=11, color="#8b949e")),
+                    tickfont=dict(color="#8b949e"),
+                    thickness=12,
+                    len=0.6,
+                ),
+                line=dict(color="rgba(255,255,255,0.15)", width=1),
+            ),
+            text=[f" {wr:.1f}%" for wr in df_ops_top["white_wr"]],
+            textposition="middle right",
+            textfont=dict(color="#c9d1d9", size=10, family="JetBrains Mono"),
+            hovertemplate="<b>%{y}</b><br>White WR: %{x:.1f}%<br>Games: %{customdata:,}<extra></extra>",
+            customdata=df_ops_top["total_games"],
+        )
+    )
+
+    if show_draw_rates:
+        for _, row in df_ops_top.iterrows():
+            fig3.add_annotation(
+                x=row["white_wr"],
+                y=row["opening"],
+                text=f"½ {row['draw_rate']:.1f}%",
+                showarrow=False,
+                xanchor="left",
+                xshift=35,
+                font=dict(color="#f59e0b", size=9, family="JetBrains Mono"),
+            )
+
+    # 50% line
+    fig3.add_vline(
+        x=50,
+        line_width=2,
+        line_dash="dash",
+        line_color="#ef4444",
+        annotation_text="50% — Neutral",
+        annotation_position="top right",
+        annotation_font=dict(size=10, color="#ef4444"),
+    )
+
+    # Shade zones
+    fig3.add_vrect(
+        x0=50,
+        x1=df_ops_top["white_wr"].max() + 5,
+        fillcolor="rgba(34,197,94,0.03)",
+        layer="below",
+        line_width=0,
+    )
+    fig3.add_vrect(
+        x0=df_ops_top["white_wr"].min() - 5,
+        x1=50,
+        fillcolor="rgba(239,68,68,0.03)",
+        layer="below",
+        line_width=0,
+    )
+
+    fig3.update_layout(**PLOTLY_LAYOUT)
+    fig3.update_layout(
+        title="White Win Rate by Opening (bubble size = popularity)",
+        xaxis=dict(
+            title="White Win Rate (%)",
+            gridcolor="rgba(99,102,241,0.07)",
+            range=[
+                df_ops_top["white_wr"].min() - 5,
+                df_ops_top["white_wr"].max() + 10,
+            ],
+        ),
+        yaxis=dict(title="", gridcolor="rgba(99,102,241,0.04)"),
+        height=500,
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+
+with tab3b:
+    # Stacked horizontal bar — full breakdown per opening
+    fig3b = go.Figure()
+
+    fig3b.add_trace(
+        go.Bar(
+            y=df_ops_top["opening"],
+            x=df_ops_top["white_wr"],
+            orientation="h",
+            name="White Win %",
+            marker=dict(color="#e2e8f0", line=dict(color="#f8fafc", width=0.5)),
+            text=[f"{v:.1f}%" for v in df_ops_top["white_wr"]],
+            textposition="inside",
+            textfont=dict(color="#0d1117", size=10, family="JetBrains Mono"),
+            hovertemplate="White: %{x:.1f}%<extra></extra>",
+        )
+    )
+
+    fig3b.add_trace(
+        go.Bar(
+            y=df_ops_top["opening"],
+            x=df_ops_top["draw_rate"],
+            orientation="h",
+            name="Draw %",
+            marker=dict(color="#f59e0b", line=dict(color="#fbbf24", width=0.5)),
+            text=[f"{v:.1f}%" for v in df_ops_top["draw_rate"]],
+            textposition="inside",
+            textfont=dict(color="#0d1117", size=10, family="JetBrains Mono"),
+            hovertemplate="Draw: %{x:.1f}%<extra></extra>",
+        )
+    )
+
+    fig3b.add_trace(
+        go.Bar(
+            y=df_ops_top["opening"],
+            x=df_ops_top["black_wr"],
+            orientation="h",
+            name="Black Win %",
+            marker=dict(color="#6366f1", line=dict(color="#818cf8", width=0.5)),
+            text=[f"{v:.1f}%" for v in df_ops_top["black_wr"]],
+            textposition="inside",
+            textfont=dict(color="#e6edf3", size=10, family="JetBrains Mono"),
+            hovertemplate="Black: %{x:.1f}%<extra></extra>",
+        )
+    )
+
+    fig3b.update_layout(**PLOTLY_LAYOUT)
+    fig3b.update_layout(
+        barmode="stack",
+        title="Complete Win/Draw/Loss Breakdown by Opening",
+        xaxis=dict(
+            title="Percentage",
+            gridcolor="rgba(99,102,241,0.07)",
+            range=[0, 100],
+        ),
+        yaxis=dict(title=""),
+        height=500,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig3b, use_container_width=True)
+
+# Insight for Task 3
+best_opening = df_ops_top.loc[df_ops_top["white_wr"].idxmax()]
+worst_opening = df_ops_top.loc[df_ops_top["white_wr"].idxmin()]
+most_popular = df_ops_top.loc[df_ops_top["total_games"].idxmax()]
+highest_draw = df_ops_top.loc[df_ops_top["draw_rate"].idxmax()]
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> The best opening for White is <strong>{best_opening["opening"]}</strong>
+    ({best_opening["white_wr"]:.1f}% win rate), while <strong>{worst_opening["opening"]}</strong> is the weakest
+    ({worst_opening["white_wr"]:.1f}%). Interestingly, the most <em>popular</em> opening is
+    <strong>{most_popular["opening"]}</strong> ({most_popular["total_games"]} games) — popularity ≠ effectiveness.
+    <strong>{highest_draw["opening"]}</strong> has the highest draw rate at {highest_draw["draw_rate"]:.1f}%.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 10. BONUS: RADAR CHART — Opening Profiles
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">✦</span> Bonus: Opening DNA Profiles</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Compare the "DNA" of different openings across multiple dimensions. Select openings to overlay their profiles and find the one that matches your style.</div>',
+    unsafe_allow_html=True,
+)
+
+# Let user pick openings to compare
+available_openings = df_ops.sort_values("total_games", ascending=False)[
+    "opening"
+].tolist()
+selected_openings = st.multiselect(
+    "Select openings to compare:",
+    options=available_openings,
+    default=available_openings[:3],
+    max_selections=6,
+)
+
+if selected_openings:
+    radar_colors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#22d3ee", "#c084fc"]
+    categories = ["White WR", "Black WR", "Draw Rate", "Popularity", "Decisiveness"]
+
+    fig_radar = go.Figure()
+
+    max_games = df_ops["total_games"].max()
+
+    for i, opening in enumerate(selected_openings):
+        row = df_ops[df_ops["opening"] == opening].iloc[0]
+        # Normalize popularity to 0-100 scale
+        popularity_norm = row["total_games"] / max_games * 100
+        decisiveness = 100 - row["draw_rate"]  # Higher = more decisive
+
+        values = [
+            row["white_wr"],
+            row["black_wr"],
+            row["draw_rate"],
+            popularity_norm,
+            decisiveness,
+        ]
+        values.append(values[0])  # Close the polygon
+        cats = categories + [categories[0]]
+
+        hex_color = radar_colors[i % len(radar_colors)]
+        # Convert hex to rgba with 0.1 alpha for the fill
+        r_val = int(hex_color[1:3], 16)
+        g_val = int(hex_color[3:5], 16)
+        b_val = int(hex_color[5:7], 16)
+        fill_rgba = f"rgba({r_val},{g_val},{b_val},0.1)"
+
+        fig_radar.add_trace(
+            go.Scatterpolar(
+                r=values,
+                theta=cats,
+                fill="toself",
+                name=opening,
+                line=dict(color=hex_color, width=2),
+                fillcolor=fill_rgba,
+                marker=dict(size=6),
+            )
+        )
+
+    fig_radar.update_layout(**PLOTLY_LAYOUT)
+    fig_radar.update_layout(
+        title="Opening DNA Radar Comparison",
+        polar=dict(
+            bgcolor="rgba(13,17,23,0.6)",
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                gridcolor="rgba(99,102,241,0.1)",
+                tickfont=dict(size=9, color="#484f58"),
+            ),
+            angularaxis=dict(
+                gridcolor="rgba(99,102,241,0.15)",
+                tickfont=dict(size=12, color="#c9d1d9", family="Inter"),
+            ),
+        ),
+        height=500,
+        legend=dict(
+            font=dict(size=11),
+            bgcolor="rgba(22,27,34,0.8)",
+            bordercolor="rgba(99,102,241,0.2)",
+            borderwidth=1,
+        ),
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+    st.markdown(
+        """<div class="warning-box">
+        ⚡ <strong>How to read this:</strong> Each axis represents a different dimension of the opening's character.
+        <b>White WR / Black WR</b> show each side's win percentage. <b>Draw Rate</b> shows how often games are inconclusive.
+        <b>Popularity</b> is normalized to the most-played opening. <b>Decisiveness</b> = 100 − Draw Rate.
+    </div>""",
+        unsafe_allow_html=True,
+    )
+else:
+    st.info("☝️ Select at least one opening above to see the radar comparison.")
+
+# ==========================================
+# 11. FOOTER
+# ==========================================
+st.markdown(
+    """<div class="footer">
+    ♟️ LICHESS INSIGHTS DASHBOARD · Built with Streamlit + Plotly · Data: Lichess Open Database (20k games) · UCD Information Visualisation 2025
+</div>""",
+    unsafe_allow_html=True,
+)

@@ -1,0 +1,13 @@
+rating_tier,winner,game_count
+2. Intermediate (1200-1499),white,3337
+2. Intermediate (1200-1499),black,2949
+1. Novice (<1200),draw,60
+3. Advanced (1500-1799),black,3587
+1. Novice (<1200),white,584
+1. Novice (<1200),black,525
+3. Advanced (1500-1799),white,3909
+4. Master (1800+),black,2046
+3. Advanced (1500-1799),draw,362
+4. Master (1800+),white,2171
+2. Intermediate (1200-1499),draw,242
+4. Master (1800+),draw,286
