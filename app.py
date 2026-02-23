@@ -4,9 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-# ==========================================
-# 1. PAGE CONFIGURATION & EPIC STYLING
-# ==========================================
+# -- page config --
 st.set_page_config(
     page_title="Lichess Insights Dashboard",
     page_icon="♟️",
@@ -14,19 +12,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Epic dark theme CSS
+# dark theme css
 st.markdown(
     """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ---- Global Dark Theme ---- */
+    /* global dark theme */
     .stApp {
         background: linear-gradient(160deg, #0a0a0f 0%, #0d1117 40%, #0f0a1a 70%, #0a0a0f 100%);
         color: #e6edf3;
     }
 
-    /* Sidebar */
+    /* sidebar */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%) !important;
         border-right: 1px solid rgba(99, 102, 241, 0.15);
@@ -37,7 +35,7 @@ st.markdown(
         color: #c9d1d9 !important;
     }
 
-    /* Hero Title */
+    /* main title */
     .hero-title {
         font-family: 'Orbitron', monospace;
         font-size: 2.6rem;
@@ -69,7 +67,7 @@ st.markdown(
         100% { background-position: 0% 50%; }
     }
 
-    /* KPI Cards */
+    /* kpi cards */
     .kpi-container {
         display: flex;
         gap: 1rem;
@@ -128,7 +126,7 @@ st.markdown(
         font-weight: 500;
     }
 
-    /* Section Headers */
+    /* section headers */
     .section-header {
         font-family: 'Orbitron', monospace;
         font-size: 1.35rem;
@@ -158,7 +156,7 @@ st.markdown(
         font-weight: 300;
     }
 
-    /* Insight callouts */
+    /* insight callouts */
     .insight-box {
         background: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(16,185,129,0.04) 100%);
         border-left: 3px solid #22c55e;
@@ -174,7 +172,7 @@ st.markdown(
         color: #4ade80;
     }
 
-    /* Warning callout */
+    /* warning callout */
     .warning-box {
         background: linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(245,158,11,0.04) 100%);
         border-left: 3px solid #f59e0b;
@@ -187,15 +185,15 @@ st.markdown(
         line-height: 1.6;
     }
 
-    /* Divider */
-    .epic-divider {
+    /* divider */
+    .section-divider {
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent);
         margin: 2rem 0;
         border: none;
     }
 
-    /* Footer */
+    /* footer */
     .footer {
         text-align: center;
         color: #484f58;
@@ -206,7 +204,7 @@ st.markdown(
         border-top: 1px solid rgba(99,102,241,0.1);
     }
 
-    /* Streamlit overrides */
+    /* streamlit overrides */
     .stSelectbox label, .stMultiSelect label, .stSlider label, .stRadio label {
         font-family: 'Inter', sans-serif !important;
         font-weight: 500 !important;
@@ -239,9 +237,7 @@ st.markdown(
 )
 
 
-# ==========================================
-# 2. DATA LOADING
-# ==========================================
+# -- load data (cached so it only runs once) --
 @st.cache_data
 def load_data():
     df_scatter = pd.read_csv("task1_scatter.csv")
@@ -255,9 +251,7 @@ def load_data():
 
 df_scatter, df_tiers, df_openings, df_ply, df_upsets, df_time = load_data()
 
-# ==========================================
-# 3. PLOTLY THEME (Dark Epic)
-# ==========================================
+# -- shared plotly layout for the dark theme --
 PLOTLY_LAYOUT = dict(
     template="plotly_dark",
     paper_bgcolor="rgba(0,0,0,0)",
@@ -285,7 +279,7 @@ COLORS = {
     "success": "#22c55e",
     "warning": "#f59e0b",
     "danger": "#ef4444",
-    "white_piece": "#e2e8f0",
+    "white_piece": "#f0d9b5",
     "black_piece": "#6366f1",
     "draw": "#f59e0b",
     "mate": "#ef4444",
@@ -301,18 +295,14 @@ VICTORY_COLORS = {
     "draw": "#a78bfa",
 }
 
-# ==========================================
-# 4. HERO HEADER
-# ==========================================
+# -- header --
 st.markdown('<div class="hero-title">♟️ LICHESS INSIGHTS</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="hero-subtitle">An interactive exploration of skill, advantage & strategy across 20,000 online chess games</div>',
+    '<div class="hero-subtitle">Exploring patterns in 20,000 online chess games from the Lichess database</div>',
     unsafe_allow_html=True,
 )
 
-# ==========================================
-# 5. KPI HERO CARDS
-# ==========================================
+# -- top-level KPI cards --
 total_games = len(df_scatter)
 avg_turns = df_scatter["turns"].mean()
 avg_rating_diff = df_scatter["rating_diff"].abs().mean()
@@ -362,11 +352,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 6. SIDEBAR
-# ==========================================
+# -- sidebar filters --
 with st.sidebar:
     st.markdown("## ♟️ Dashboard Controls")
     st.markdown("---")
@@ -467,19 +455,19 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# ==========================================
-# 7. VIZ 1: SCATTERPLOT — Anatomy of a Quick Crush
-# ==========================================
+# -----------------------------------------------
+# Task 1: Scatterplot - rating diff vs game length
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">01</span> The Anatomy of a Quick Crush</div>',
+    '<div class="section-header"><span class="num">01</span> Rating Gap vs. Game Length</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Does a larger skill gap result in a faster game? This chart maps the rating differential against game length, colored by how the game ended. Look for the telltale funnel shape — mismatches end fast.</div>',
+    '<div class="section-desc">Looking at whether a bigger skill gap between players leads to shorter games. The scatter plot maps rating difference against the number of turns, coloured by how each game ended.</div>',
     unsafe_allow_html=True,
 )
 
-# Apply filters
+# apply sidebar filters
 filtered_scatter = df_scatter[
     (df_scatter["victory_status"].isin(status_filter))
     & (df_scatter["turns"] >= turn_range[0])
@@ -519,7 +507,7 @@ with tab1a:
         yaxis=dict(gridcolor="rgba(99,102,241,0.07)"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    # Add annotation for the "evenly matched" zone
+    # highlight the zone where players are roughly equal
     fig1.add_vrect(
         x0=-50,
         x1=50,
@@ -555,7 +543,7 @@ with tab1b:
     )
     fig1_heat.update_layout(**PLOTLY_LAYOUT)
     fig1_heat.update_layout(
-        title="Game Density Heatmap: Where Do Most Games Live?",
+        title="Density Heatmap of Games",
         xaxis_title="Rating Differential (White − Black)",
         yaxis_title="Number of Turns",
         xaxis=dict(gridcolor="rgba(99,102,241,0.05)"),
@@ -564,7 +552,7 @@ with tab1b:
     st.plotly_chart(fig1_heat, use_container_width=True)
 
 with tab1c:
-    # Marginal distributions
+    # show distributions of turns and rating diff side by side
     fig1_dist = make_subplots(
         rows=1,
         cols=2,
@@ -603,7 +591,7 @@ with tab1c:
     )
     fig1_dist.update_layout(**PLOTLY_LAYOUT)
     fig1_dist.update_layout(
-        title="Distribution Deep Dive",
+        title="Distribution Breakdown",
         height=450,
         showlegend=True,
         legend=dict(
@@ -625,7 +613,7 @@ with tab1c:
     )
     st.plotly_chart(fig1_dist, use_container_width=True)
 
-# Insight box for Task 1
+# quick stats for the insight box
 mate_games = filtered_scatter[filtered_scatter["victory_status"] == "mate"]
 resign_games = filtered_scatter[filtered_scatter["victory_status"] == "resign"]
 avg_mate_turns = mate_games["turns"].mean() if len(mate_games) > 0 else 0
@@ -633,31 +621,30 @@ avg_resign_turns = resign_games["turns"].mean() if len(resign_games) > 0 else 0
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> Checkmates average <strong>{avg_mate_turns:.0f} turns</strong> while
-    resignations average <strong>{avg_resign_turns:.0f} turns</strong>. Players who see the end coming
-    tend to resign before the inevitable mate — the skill gap creates a "funnel of doom" where
-    large differentials cluster in the lower-left and lower-right corners.
+    💡 <strong>Observation:</strong> Checkmates take about <strong>{avg_mate_turns:.0f} turns</strong> on average,
+    while resignations average <strong>{avg_resign_turns:.0f} turns</strong>. Players tend to resign before
+    the actual mate happens, especially in mismatched games. You can also see how games with big rating
+    gaps cluster towards shorter turn counts in the corners of the plot.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 8. VIZ 2: DIVERGING BAR — White Advantage
-# ==========================================
+# -----------------------------------------------
+# Task 2: White vs Black wins by tier
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">02</span> The Myth of the White Advantage</div>',
+    '<div class="section-header"><span class="num">02</span> White\'s First-Move Advantage</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Does playing White actually yield a higher win rate? We break it down by skill tier to see if this advantage is universal or concentrated at certain levels.</div>',
+    '<div class="section-desc">Checking whether White really does win more often, and if the effect is the same across different skill levels.</div>',
     unsafe_allow_html=True,
 )
 
 tab2a, tab2b = st.tabs(["📊 Diverging Bar Chart", "🎯 Win Rate Comparison"])
 
-# Prepare data
 tier_order = [
     "1. Novice (<1200)",
     "2. Intermediate (1200-1499)",
@@ -677,10 +664,9 @@ with tab2a:
         bc = int(black_count[0]) if len(black_count) > 0 else 0
         dc = int(draw_count[0]) if len(draw_count) > 0 else 0
 
-        # Friendly tier name
         friendly = tier.split(". ")[1] if ". " in tier else tier
 
-        # White wins (positive)
+        # white wins go to the right (positive)
         fig2.add_trace(
             go.Bar(
                 y=[friendly],
@@ -688,19 +674,19 @@ with tab2a:
                 orientation="h",
                 name="White Wins" if tier == tier_order[0] else None,
                 marker=dict(
-                    color="#e2e8f0",
-                    line=dict(color="#f8fafc", width=1),
+                    color="#f0d9b5",
+                    line=dict(color="#dfc198", width=1.5),
                 ),
                 text=[f"⚪ {wc:,}"],
                 textposition="inside",
-                textfont=dict(color="#0d1117", size=12, family="JetBrains Mono"),
+                textfont=dict(color="#1a1207", size=12, family="JetBrains Mono"),
                 hovertemplate=f"<b>{friendly}</b><br>White Wins: {wc:,}<extra></extra>",
                 showlegend=(tier == tier_order[0]),
                 legendgroup="white",
             )
         )
 
-        # Black wins (negative)
+        # black wins go to the left (negative)
         fig2.add_trace(
             go.Bar(
                 y=[friendly],
@@ -720,49 +706,49 @@ with tab2a:
             )
         )
 
-        # Draws
-        if show_draws_task2 and dc > 0:
-            fig2.add_trace(
-                go.Bar(
-                    y=[friendly],
-                    x=[dc],
-                    orientation="h",
-                    name="Draws" if tier == tier_order[0] else None,
-                    marker=dict(
-                        color="#f59e0b",
-                        line=dict(color="#fbbf24", width=1),
-                    ),
-                    text=[f"½ {dc}"],
-                    textposition="outside",
-                    textfont=dict(color="#f59e0b", size=10, family="JetBrains Mono"),
-                    hovertemplate=f"<b>{friendly}</b><br>Draws: {dc:,}<extra></extra>",
-                    showlegend=(tier == tier_order[0]),
-                    legendgroup="draw",
-                    base=wc,
-                )
-            )
+    # add clean right-side annotations for net advantage and draws
+    for tier in tier_order:
+        tier_data = df_tiers[df_tiers["rating_tier"] == tier]
+        white_count = tier_data[tier_data["winner"] == "white"]["game_count"].values
+        black_count = tier_data[tier_data["winner"] == "black"]["game_count"].values
+        draw_count = tier_data[tier_data["winner"] == "draw"]["game_count"].values
+        wc = int(white_count[0]) if len(white_count) > 0 else 0
+        bc = int(black_count[0]) if len(black_count) > 0 else 0
+        dc = int(draw_count[0]) if len(draw_count) > 0 else 0
+        net = wc - bc
+        friendly = tier.split(". ")[1] if ". " in tier else tier
+        total = wc + bc
+        pct = (wc / total * 100) if total > 0 else 50
+        sign = "+" if net > 0 else ""
 
-    # Net advantage annotations
-    if show_net_advantage:
-        for tier in tier_order:
-            tier_data = df_tiers[df_tiers["rating_tier"] == tier]
-            white_count = tier_data[tier_data["winner"] == "white"]["game_count"].values
-            black_count = tier_data[tier_data["winner"] == "black"]["game_count"].values
-            wc = int(white_count[0]) if len(white_count) > 0 else 0
-            bc = int(black_count[0]) if len(black_count) > 0 else 0
-            net = wc - bc
-            friendly = tier.split(". ")[1] if ". " in tier else tier
-            total = wc + bc
-            pct = (wc / total * 100) if total > 0 else 50
-            sign = "+" if net > 0 else ""
+        if show_net_advantage:
             fig2.add_annotation(
-                x=max(wc, bc) + 350,
+                xref="paper",
+                x=1.01,
                 y=friendly,
-                text=f"<b>{pct:.1f}%</b> W  ({sign}{net})",
+                text=f"<b>{pct:.1f}%</b> W ({sign}{net})",
                 showarrow=False,
+                xanchor="left",
+                yshift=8 if show_draws_task2 else 0,
                 font=dict(
                     size=11,
                     color="#22c55e" if net > 0 else "#ef4444",
+                    family="JetBrains Mono",
+                ),
+            )
+
+        if show_draws_task2 and dc > 0:
+            fig2.add_annotation(
+                xref="paper",
+                x=1.01,
+                y=friendly,
+                text=f"½ {dc:,} draws",
+                showarrow=False,
+                xanchor="left",
+                yshift=-8 if show_net_advantage else 0,
+                font=dict(
+                    size=10,
+                    color="#f59e0b",
                     family="JetBrains Mono",
                 ),
             )
@@ -783,13 +769,14 @@ with tab2a:
             categoryorder="array",
             categoryarray=[t.split(". ")[1] for t in tier_order],
         ),
-        height=400,
+        height=420,
+        margin=dict(t=60, b=50, l=60, r=160),
         legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
 with tab2b:
-    # Win Rate dot plot (dumbbell-style)
+    # dumbbell chart comparing white vs black win rates
     fig2b = go.Figure()
 
     for i, tier in enumerate(tier_order):
@@ -806,7 +793,7 @@ with tab2b:
         d_pct = dc / total * 100
         friendly = tier.split(". ")[1] if ". " in tier else tier
 
-        # Connecting line
+        # connecting line between the two dots
         fig2b.add_trace(
             go.Scatter(
                 x=[b_pct, w_pct],
@@ -818,18 +805,18 @@ with tab2b:
             )
         )
 
-        # White dot
+        # white dot
         fig2b.add_trace(
             go.Scatter(
                 x=[w_pct],
                 y=[friendly],
                 mode="markers+text",
                 marker=dict(
-                    size=18, color="#e2e8f0", line=dict(color="#f8fafc", width=2)
+                    size=18, color="#f0d9b5", line=dict(color="#dfc198", width=2)
                 ),
                 text=[f"{w_pct:.1f}%"],
                 textposition="top center",
-                textfont=dict(color="#e2e8f0", size=11, family="JetBrains Mono"),
+                textfont=dict(color="#f0d9b5", size=11, family="JetBrains Mono"),
                 name="White Win %" if i == 0 else None,
                 showlegend=(i == 0),
                 legendgroup="white_pct",
@@ -837,7 +824,7 @@ with tab2b:
             )
         )
 
-        # Black dot
+        # black dot
         fig2b.add_trace(
             go.Scatter(
                 x=[b_pct],
@@ -884,7 +871,7 @@ with tab2b:
     )
     st.plotly_chart(fig2b, use_container_width=True)
 
-# Insight for Task 2
+# compute which tier has biggest/smallest white advantage
 tier_advantages = []
 for tier in tier_order:
     td = df_tiers[df_tiers["rating_tier"] == tier]
@@ -900,29 +887,29 @@ min_adv_tier = min(tier_advantages, key=lambda x: x[1])
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> White's advantage is real but modest. The largest edge belongs to
-    <strong>{max_adv_tier[0]}</strong> players ({max_adv_tier[1]:.1f}% white win rate), while
-    <strong>{min_adv_tier[0]}</strong> players show the smallest gap ({min_adv_tier[1]:.1f}%).
-    The first-move advantage appears to be a consistent structural feature across all skill levels.
+    💡 <strong>Observation:</strong> White does win more often across all tiers. The biggest edge is at the
+    <strong>{max_adv_tier[0]}</strong> level ({max_adv_tier[1]:.1f}% white win rate), while
+    <strong>{min_adv_tier[0]}</strong> has the smallest gap ({min_adv_tier[1]:.1f}%).
+    So the first-move advantage seems pretty consistent regardless of skill level.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 9. VIZ 3: OPENING ANALYSIS
-# ==========================================
+# -----------------------------------------------
+# Task 3: Opening analysis
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">03</span> Opening Popularity vs. Effectiveness</div>',
+    '<div class="section-header"><span class="num">03</span> Opening Popularity vs. Win Rate</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Are the most popular openings actually the most successful? We compare White\'s win rate against total popularity, sized by volume. The red dashed line marks 50% — anything to its right favors White.</div>',
+    '<div class="section-desc">Comparing how popular each opening is against how well White actually does with it. Bubble size shows how many games used that opening. The red dashed line at 50% marks the break-even point.</div>',
     unsafe_allow_html=True,
 )
 
-# Prepare opening data
+# aggregate opening stats from the raw data
 opening_stats = []
 for name in df_openings["opening_name"].unique():
     subset = df_openings[df_openings["opening_name"] == name]
@@ -1006,12 +993,12 @@ with tab3a:
         line_width=2,
         line_dash="dash",
         line_color="#ef4444",
-        annotation_text="50% — Neutral",
+        annotation_text="50% - Neutral",
         annotation_position="top right",
         annotation_font=dict(size=10, color="#ef4444"),
     )
 
-    # Shade zones
+    # shade the "favours white" and "favours black" zones
     fig3.add_vrect(
         x0=50,
         x1=df_ops_top["white_wr"].max() + 5,
@@ -1044,7 +1031,7 @@ with tab3a:
     st.plotly_chart(fig3, use_container_width=True)
 
 with tab3b:
-    # Stacked horizontal bar — full breakdown per opening
+    # stacked bar showing white/draw/black split for each opening
     fig3b = go.Figure()
 
     fig3b.add_trace(
@@ -1053,10 +1040,10 @@ with tab3b:
             x=df_ops_top["white_wr"],
             orientation="h",
             name="White Win %",
-            marker=dict(color="#e2e8f0", line=dict(color="#f8fafc", width=0.5)),
+            marker=dict(color="#f0d9b5", line=dict(color="#dfc198", width=0.5)),
             text=[f"{v:.1f}%" for v in df_ops_top["white_wr"]],
             textposition="inside",
-            textfont=dict(color="#0d1117", size=10, family="JetBrains Mono"),
+            textfont=dict(color="#1a1207", size=10, family="JetBrains Mono"),
             hovertemplate="White: %{x:.1f}%<extra></extra>",
         )
     )
@@ -1092,7 +1079,7 @@ with tab3b:
     fig3b.update_layout(**PLOTLY_LAYOUT)
     fig3b.update_layout(
         barmode="stack",
-        title="Complete Win/Draw/Loss Breakdown by Opening",
+        title="Full Win/Draw/Loss Breakdown by Opening",
         xaxis=dict(
             title="Percentage",
             gridcolor="rgba(99,102,241,0.07)",
@@ -1104,7 +1091,7 @@ with tab3b:
     )
     st.plotly_chart(fig3b, use_container_width=True)
 
-# Insight for Task 3
+# find the best/worst/most popular openings for the insight
 best_opening = df_ops_top.loc[df_ops_top["white_wr"].idxmax()]
 worst_opening = df_ops_top.loc[df_ops_top["white_wr"].idxmin()]
 most_popular = df_ops_top.loc[df_ops_top["total_games"].idxmax()]
@@ -1112,26 +1099,26 @@ highest_draw = df_ops_top.loc[df_ops_top["draw_rate"].idxmax()]
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> The best opening for White is <strong>{best_opening["opening"]}</strong>
-    ({best_opening["white_wr"]:.1f}% win rate), while <strong>{worst_opening["opening"]}</strong> is the weakest
-    ({worst_opening["white_wr"]:.1f}%). Interestingly, the most <em>popular</em> opening is
-    <strong>{most_popular["opening"]}</strong> ({most_popular["total_games"]} games) — popularity ≠ effectiveness.
-    <strong>{highest_draw["opening"]}</strong> has the highest draw rate at {highest_draw["draw_rate"]:.1f}%.
+    💡 <strong>Observation:</strong> White does best with <strong>{best_opening["opening"]}</strong>
+    ({best_opening["white_wr"]:.1f}% win rate), and worst with <strong>{worst_opening["opening"]}</strong>
+    ({worst_opening["white_wr"]:.1f}%). The most played opening is
+    <strong>{most_popular["opening"]}</strong> ({most_popular["total_games"]} games), which isn't the same as the
+    most effective one. <strong>{highest_draw["opening"]}</strong> leads to the most draws at {highest_draw["draw_rate"]:.1f}%.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 10. VIZ 4: OPENING THEORY DEPTH BY TIER
-# ==========================================
+# -----------------------------------------------
+# Task 4: Opening theory depth (ply) by tier
+# -----------------------------------------------
 st.markdown(
     '<div class="section-header"><span class="num">04</span> Opening Theory Depth by Skill Tier</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Do stronger players employ deeper opening theory? Opening ply measures how many moves deep a game follows known book lines. Here we compare that depth across skill tiers.</div>',
+    '<div class="section-desc">Opening ply measures how many moves into the game a known book line was followed. This chart compares that depth across the four skill tiers to see if stronger players use more theory.</div>',
     unsafe_allow_html=True,
 )
 
@@ -1198,38 +1185,38 @@ fig4.update_layout(
 )
 st.plotly_chart(fig4, use_container_width=True)
 
-# Insight for Task 4
+# grab the tier with the deepest/shallowest average theory
 ply_means = df_ply.groupby("tier_label")["opening_ply"].mean()
 deepest_tier = ply_means.idxmax()
 shallowest_tier = ply_means.idxmin()
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> <strong>{deepest_tier}</strong> players use the deepest opening theory
-    (avg {ply_means[deepest_tier]:.1f} ply), while <strong>{shallowest_tier}</strong> players go the shallowest
-    ({ply_means[shallowest_tier]:.1f} ply). The spread also widens at higher tiers — masters are more
-    likely to both blitz out deep prep <em>and</em> sidestep into off-beat lines.
+    💡 <strong>Observation:</strong> <strong>{deepest_tier}</strong> players use the deepest opening theory on
+    average ({ply_means[deepest_tier]:.1f} ply), while <strong>{shallowest_tier}</strong> players go the
+    shallowest ({ply_means[shallowest_tier]:.1f} ply). Higher-rated players also have a wider spread,
+    meaning they sometimes go very deep into prep but also sometimes play uncommon lines early.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 11. VIZ 5: THE UPSET FACTOR
-# ==========================================
+# -----------------------------------------------
+# Task 5: Upsets - lower rated player winning
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">05</span> The Upset Factor</div>',
+    '<div class="section-header"><span class="num">05</span> Upset Frequency</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">How often does the lower-rated player pull off an upset? And does a bigger rating gap make upsets less likely — or does chaos always find a way?</div>',
+    '<div class="section-desc">How often does the lower-rated player actually win? This section bins games by rating gap and tracks how the upset rate changes as the gap gets bigger.</div>',
     unsafe_allow_html=True,
 )
 
 tab5a, tab5b = st.tabs(["📉 Upset Rate Curve", "📊 Volume Breakdown"])
 
-# Bin the rating gaps
+# bin the rating gaps
 df_upsets_filtered = df_upsets[df_upsets["rating_gap"] <= max_gap_display].copy()
 df_upsets_filtered["gap_bin"] = (
     (df_upsets_filtered["rating_gap"] // gap_bin_size) * gap_bin_size
@@ -1254,7 +1241,7 @@ upset_by_bin = (
 with tab5a:
     fig5a = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # Upset rate line
+    # upset rate line
     fig5a.add_trace(
         go.Scatter(
             x=upset_by_bin["gap_bin"],
@@ -1270,7 +1257,7 @@ with tab5a:
         secondary_y=False,
     )
 
-    # Volume bars behind
+    # volume bars in background
     fig5a.add_trace(
         go.Bar(
             x=upset_by_bin["gap_bin"],
@@ -1354,7 +1341,7 @@ with tab5b:
     )
     st.plotly_chart(fig5b, use_container_width=True)
 
-# Insight for Task 5
+# upset stats for the insight
 total_upsets = (df_upsets["outcome_type"] == "Upset (Lower Rated Won)").sum()
 total_decisive = len(df_upsets)
 overall_upset_pct = total_upsets / total_decisive * 100
@@ -1373,29 +1360,30 @@ big_gap_upset_pct = (
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> Overall, <strong>{overall_upset_pct:.1f}%</strong> of decisive games are upsets.
-    When players are closely matched (gap ≤ 50), it's nearly a coin flip at <strong>{close_upset_pct:.1f}%</strong>.
-    But at large gaps (≥ 400 rating), upsets drop to just <strong>{big_gap_upset_pct:.1f}%</strong> — skill dominates chaos.
+    💡 <strong>Observation:</strong> Overall, <strong>{overall_upset_pct:.1f}%</strong> of decisive games are upsets.
+    When players are close in rating (gap of 50 or less), it's basically a coin flip at <strong>{close_upset_pct:.1f}%</strong>.
+    But once the gap hits 400+, upsets only happen <strong>{big_gap_upset_pct:.1f}%</strong> of the time, so
+    rating is a pretty good predictor at that point.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 12. VIZ 6: TIME CONTROL BATTLEFIELD
-# ==========================================
+# -----------------------------------------------
+# Task 6: Time control vs how games end
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">06</span> The Time Control Battlefield</div>',
+    '<div class="section-header"><span class="num">06</span> Time Control vs. Game Outcome</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Does the clock decide how games end? Bullet games breed timeouts, while classical games reward deep calculation. Here we classify every game by time control and see how victory conditions shift.</div>',
+    '<div class="section-desc">Different time controls lead to very different game endings. Faster formats like bullet have way more timeouts, while longer games tend to end in checkmate or resignation more often.</div>',
     unsafe_allow_html=True,
 )
 
 
-# Classify time controls into categories using Lichess formula
+# classify time controls using the lichess formula (base + 40*increment)
 def classify_time_control(tc_string):
     try:
         parts = tc_string.split("+")
@@ -1425,12 +1413,12 @@ vs_colors = {
     "draw": "#a78bfa",
 }
 
-# Aggregate by category
+# aggregate counts by time control category
 tc_agg = (
     df_time.groupby(["tc_category", "victory_status"])["game_count"].sum().reset_index()
 )
 
-# Compute percentages within each tc category
+# percentages within each category
 tc_totals = tc_agg.groupby("tc_category")["game_count"].sum().reset_index()
 tc_totals.columns = ["tc_category", "tc_total"]
 tc_agg = tc_agg.merge(tc_totals, on="tc_category")
@@ -1440,7 +1428,7 @@ if time_chart_mode == "Stacked Bar":
     fig6 = go.Figure()
     for vs in vs_order:
         sub = tc_agg[tc_agg["victory_status"] == vs]
-        # Ensure all categories present
+        # make sure all categories are present even if 0
         sub = sub.set_index("tc_category").reindex(tc_order).fillna(0).reset_index()
         fig6.add_trace(
             go.Bar(
@@ -1465,7 +1453,7 @@ if time_chart_mode == "Stacked Bar":
     fig6.update_layout(**PLOTLY_LAYOUT)
     fig6.update_layout(
         barmode="stack",
-        title="How Games End by Time Control Category",
+        title="How Games End by Time Control",
         xaxis=dict(
             title="Time Control",
             categoryorder="array",
@@ -1482,11 +1470,10 @@ if time_chart_mode == "Stacked Bar":
     st.plotly_chart(fig6, use_container_width=True)
 
 else:
-    # Heatmap mode
+    # heatmap mode
     pivot = tc_agg.pivot_table(
         index="victory_status", columns="tc_category", values="pct", fill_value=0
     )
-    # Reorder
     pivot = pivot.reindex(index=vs_order, columns=tc_order, fill_value=0)
 
     fig6 = go.Figure(
@@ -1522,7 +1509,7 @@ else:
     )
     st.plotly_chart(fig6, use_container_width=True)
 
-# Insight for Task 6
+# pull some numbers for the insight
 bullet_timeout = tc_agg[
     (tc_agg["tc_category"] == "Bullet (<3m)")
     & (tc_agg["victory_status"] == "outoftime")
@@ -1537,29 +1524,29 @@ classical_m_pct = (
 
 st.markdown(
     f"""<div class="insight-box">
-    💡 <strong>Key Insight:</strong> In Bullet games, <strong>{bullet_to_pct:.1f}%</strong> end on time —
-    the clock is as dangerous as the opponent. In Classical games, checkmates account for
-    <strong>{classical_m_pct:.1f}%</strong> of outcomes. As time pressure decreases, the game
-    becomes more about pure chess skill and less about speed.
+    💡 <strong>Observation:</strong> In Bullet games, <strong>{bullet_to_pct:.1f}%</strong> end on time,
+    which makes sense given how little time players have. In Classical games, checkmates make up
+    <strong>{classical_m_pct:.1f}%</strong> of results. Basically, the less time pressure there is,
+    the more games are decided by actual chess rather than the clock.
 </div>""",
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 13. BONUS: RADAR CHART — Opening Profiles
-# ==========================================
+# -----------------------------------------------
+# Bonus: Radar chart for comparing openings
+# -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">✦</span> Bonus: Opening DNA Profiles</div>',
+    '<div class="section-header"><span class="num">✦</span> Bonus: Opening Profiles</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">Compare the "DNA" of different openings across multiple dimensions. Select openings to overlay their profiles and find the one that matches your style.</div>',
+    '<div class="section-desc">A radar chart for comparing openings across a few different dimensions. Pick some openings and see how they stack up against each other.</div>',
     unsafe_allow_html=True,
 )
 
-# Let user pick openings to compare
+# let the user pick which openings to compare
 available_openings = df_ops.sort_values("total_games", ascending=False)[
     "opening"
 ].tolist()
@@ -1580,9 +1567,9 @@ if selected_openings:
 
     for i, opening in enumerate(selected_openings):
         row = df_ops[df_ops["opening"] == opening].iloc[0]
-        # Normalize popularity to 0-100 scale
+        # normalise popularity to 0-100 so it fits on the same scale
         popularity_norm = row["total_games"] / max_games * 100
-        decisiveness = 100 - row["draw_rate"]  # Higher = more decisive
+        decisiveness = 100 - row["draw_rate"]
 
         values = [
             row["white_wr"],
@@ -1591,11 +1578,10 @@ if selected_openings:
             popularity_norm,
             decisiveness,
         ]
-        values.append(values[0])  # Close the polygon
+        values.append(values[0])  # close the polygon
         cats = categories + [categories[0]]
 
         hex_color = radar_colors[i % len(radar_colors)]
-        # Convert hex to rgba with 0.1 alpha for the fill
         r_val = int(hex_color[1:3], 16)
         g_val = int(hex_color[3:5], 16)
         b_val = int(hex_color[5:7], 16)
@@ -1615,7 +1601,7 @@ if selected_openings:
 
     fig_radar.update_layout(**PLOTLY_LAYOUT)
     fig_radar.update_layout(
-        title="Opening DNA Radar Comparison",
+        title="Opening Profile Comparison",
         polar=dict(
             bgcolor="rgba(13,17,23,0.6)",
             radialaxis=dict(
@@ -1641,21 +1627,20 @@ if selected_openings:
 
     st.markdown(
         """<div class="warning-box">
-        ⚡ <strong>How to read this:</strong> Each axis represents a different dimension of the opening's character.
-        <b>White WR / Black WR</b> show each side's win percentage. <b>Draw Rate</b> shows how often games are inconclusive.
-        <b>Popularity</b> is normalized to the most-played opening. <b>Decisiveness</b> = 100 − Draw Rate.
+        ⚡ <strong>How to read this:</strong> Each axis is a different property of the opening.
+        <b>White WR / Black WR</b> are the win percentages for each side. <b>Draw Rate</b> is how often
+        the game ends in a draw. <b>Popularity</b> is scaled relative to the most-played opening.
+        <b>Decisiveness</b> is just 100 minus the draw rate (higher = fewer draws).
     </div>""",
         unsafe_allow_html=True,
     )
 else:
     st.info("☝️ Select at least one opening above to see the radar comparison.")
 
-# ==========================================
-# 11. FOOTER
-# ==========================================
+# -- footer --
 st.markdown(
     """<div class="footer">
-    ♟️ LICHESS INSIGHTS DASHBOARD · Built with Streamlit + Plotly · Data: Lichess Open Database (20k games) · UCD Information Visualisation 2025
+    ♟️ LICHESS INSIGHTS DASHBOARD · Built with Streamlit + Plotly · Data: Lichess Open Database (20k games) · Shane Whelan 2026
 </div>""",
     unsafe_allow_html=True,
 )
