@@ -459,7 +459,7 @@ with st.sidebar:
 # Task 1: Scatterplot - rating diff vs game length
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">01</span> Rating Gap vs. Game Length</div>',
+    '<div class="section-header"><span class="num">01</span> The Anatomy of a Quick Crush</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -635,7 +635,7 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 # Task 2: White vs Black wins by tier
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">02</span> White\'s First-Move Advantage</div>',
+    '<div class="section-header"><span class="num">02</span> The Myth of the White Advantage</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -901,7 +901,7 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 # Task 3: Opening analysis
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">03</span> Opening Popularity vs. Win Rate</div>',
+    '<div class="section-header"><span class="num">03</span> Opening Popularity vs. Effectiveness</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -1206,7 +1206,7 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 # Task 5: Upsets - lower rated player winning
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">05</span> Upset Frequency</div>',
+    '<div class="section-header"><span class="num">05</span> The Upset Factor</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -1374,7 +1374,7 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 # Task 6: Time control vs how games end
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">06</span> Time Control vs. Game Outcome</div>',
+    '<div class="section-header"><span class="num">06</span> The Time Control Battlefield</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -1538,7 +1538,7 @@ st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 # Bonus: Radar chart for comparing openings
 # -----------------------------------------------
 st.markdown(
-    '<div class="section-header"><span class="num">✦</span> Bonus: Opening Profiles</div>',
+    '<div class="section-header"><span class="num">✦</span> Bonus: Opening DNA Profiles</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
