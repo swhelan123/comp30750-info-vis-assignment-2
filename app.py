@@ -247,10 +247,13 @@ def load_data():
     df_scatter = pd.read_csv("task1_scatter.csv")
     df_tiers = pd.read_csv("task2_tiers.csv")
     df_openings = pd.read_csv("task3_openings.csv")
-    return df_scatter, df_tiers, df_openings
+    df_ply = pd.read_csv("task4_ply_by_tier.csv")
+    df_upsets = pd.read_csv("task5_upsets.csv")
+    df_time = pd.read_csv("task6_time_victory.csv")
+    return df_scatter, df_tiers, df_openings, df_ply, df_upsets, df_time
 
 
-df_scatter, df_tiers, df_openings = load_data()
+df_scatter, df_tiers, df_openings, df_ply, df_upsets, df_time = load_data()
 
 # ==========================================
 # 3. PLOTLY THEME (Dark Epic)
@@ -412,6 +415,45 @@ with st.sidebar:
     )
     show_draw_rates = st.checkbox(
         "Show Draw Rates", value=False, help="Overlay draw rates on the chart"
+    )
+
+    st.markdown("---")
+    st.markdown("### 🎻 Task 4 Options")
+    ply_chart_type = st.radio(
+        "Chart Style",
+        options=["Violin", "Box"],
+        index=0,
+        help="Choose between violin or box plot",
+        horizontal=True,
+    )
+
+    st.markdown("---")
+    st.markdown("### 🏆 Task 5 Options")
+    gap_bin_size = st.slider(
+        "Rating Gap Bin Width",
+        min_value=25,
+        max_value=100,
+        value=50,
+        step=25,
+        help="Controls granularity of upset rate bins",
+    )
+    max_gap_display = st.slider(
+        "Max Rating Gap to Display",
+        min_value=200,
+        max_value=1600,
+        value=800,
+        step=100,
+        help="Limit the x-axis range",
+    )
+
+    st.markdown("---")
+    st.markdown("### ⏱️ Task 6 Options")
+    time_chart_mode = st.radio(
+        "Chart Mode",
+        options=["Stacked Bar", "Heatmap"],
+        index=0,
+        help="How to display time control vs outcome",
+        horizontal=True,
     )
 
     st.markdown("---")
@@ -1082,7 +1124,431 @@ st.markdown(
 st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 10. BONUS: RADAR CHART — Opening Profiles
+# 10. VIZ 4: OPENING THEORY DEPTH BY TIER
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">04</span> Opening Theory Depth by Skill Tier</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Do stronger players employ deeper opening theory? Opening ply measures how many moves deep a game follows known book lines. Here we compare that depth across skill tiers.</div>',
+    unsafe_allow_html=True,
+)
+
+tier_order_labels = {
+    "1. Novice (<1200)": "Novice (<1200)",
+    "2. Intermediate (1200-1499)": "Intermediate (1200-1499)",
+    "3. Advanced (1500-1799)": "Advanced (1500-1799)",
+    "4. Master (1800+)": "Master (1800+)",
+}
+df_ply["tier_label"] = df_ply["rating_tier"].map(tier_order_labels)
+tier_label_order = list(tier_order_labels.values())
+
+tier_colors_map = {
+    "Novice (<1200)": "#22d3ee",
+    "Intermediate (1200-1499)": "#6366f1",
+    "Advanced (1500-1799)": "#a78bfa",
+    "Master (1800+)": "#c084fc",
+}
+
+fig4 = go.Figure()
+
+for tier_label in tier_label_order:
+    subset = df_ply[df_ply["tier_label"] == tier_label]["opening_ply"]
+    color = tier_colors_map[tier_label]
+
+    if ply_chart_type == "Violin":
+        fig4.add_trace(
+            go.Violin(
+                y=subset,
+                name=tier_label,
+                line_color=color,
+                fillcolor=color,
+                opacity=0.6,
+                meanline_visible=True,
+                box_visible=True,
+                points=False,
+                scalemode="width",
+                hoverinfo="y+name",
+            )
+        )
+    else:
+        fig4.add_trace(
+            go.Box(
+                y=subset,
+                name=tier_label,
+                marker_color=color,
+                line_color=color,
+                fillcolor=f"rgba({int(color[1:3], 16)},{int(color[3:5], 16)},{int(color[5:7], 16)},0.3)",
+                boxmean="sd",
+                hoverinfo="y+name",
+            )
+        )
+
+fig4.update_layout(**PLOTLY_LAYOUT)
+fig4.update_layout(
+    title=f"Opening Ply Distribution by Skill Tier ({ply_chart_type} Plot)",
+    yaxis=dict(
+        title="Opening Ply (Book Depth)",
+        gridcolor="rgba(99,102,241,0.07)",
+    ),
+    xaxis=dict(title=""),
+    height=480,
+    showlegend=False,
+)
+st.plotly_chart(fig4, use_container_width=True)
+
+# Insight for Task 4
+ply_means = df_ply.groupby("tier_label")["opening_ply"].mean()
+deepest_tier = ply_means.idxmax()
+shallowest_tier = ply_means.idxmin()
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> <strong>{deepest_tier}</strong> players use the deepest opening theory
+    (avg {ply_means[deepest_tier]:.1f} ply), while <strong>{shallowest_tier}</strong> players go the shallowest
+    ({ply_means[shallowest_tier]:.1f} ply). The spread also widens at higher tiers — masters are more
+    likely to both blitz out deep prep <em>and</em> sidestep into off-beat lines.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 11. VIZ 5: THE UPSET FACTOR
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">05</span> The Upset Factor</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">How often does the lower-rated player pull off an upset? And does a bigger rating gap make upsets less likely — or does chaos always find a way?</div>',
+    unsafe_allow_html=True,
+)
+
+tab5a, tab5b = st.tabs(["📉 Upset Rate Curve", "📊 Volume Breakdown"])
+
+# Bin the rating gaps
+df_upsets_filtered = df_upsets[df_upsets["rating_gap"] <= max_gap_display].copy()
+df_upsets_filtered["gap_bin"] = (
+    (df_upsets_filtered["rating_gap"] // gap_bin_size) * gap_bin_size
+).astype(int)
+
+upset_by_bin = (
+    df_upsets_filtered.groupby("gap_bin")
+    .apply(
+        lambda g: pd.Series(
+            {
+                "total": len(g),
+                "upsets": (g["outcome_type"] == "Upset (Lower Rated Won)").sum(),
+                "upset_rate": (g["outcome_type"] == "Upset (Lower Rated Won)").mean()
+                * 100,
+            }
+        ),
+        include_groups=False,
+    )
+    .reset_index()
+)
+
+with tab5a:
+    fig5a = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Upset rate line
+    fig5a.add_trace(
+        go.Scatter(
+            x=upset_by_bin["gap_bin"],
+            y=upset_by_bin["upset_rate"],
+            mode="lines+markers",
+            name="Upset Rate %",
+            line=dict(color="#ef4444", width=3),
+            marker=dict(size=7, color="#ef4444", line=dict(color="#fca5a5", width=1)),
+            fill="tozeroy",
+            fillcolor="rgba(239,68,68,0.08)",
+            hovertemplate="Gap: %{x}<br>Upset Rate: %{y:.1f}%<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+
+    # Volume bars behind
+    fig5a.add_trace(
+        go.Bar(
+            x=upset_by_bin["gap_bin"],
+            y=upset_by_bin["total"],
+            name="Games in Bin",
+            marker=dict(
+                color="rgba(99,102,241,0.2)",
+                line=dict(color="rgba(99,102,241,0.4)", width=1),
+            ),
+            hovertemplate="Gap: %{x}<br>Games: %{y:,}<extra></extra>",
+        ),
+        secondary_y=True,
+    )
+
+    # 50% reference
+    fig5a.add_hline(
+        y=50,
+        line_width=1,
+        line_dash="dot",
+        line_color="rgba(255,255,255,0.15)",
+        annotation_text="50% (coin flip)",
+        annotation_font=dict(color="#484f58", size=10),
+        secondary_y=False,
+    )
+
+    fig5a.update_layout(**PLOTLY_LAYOUT)
+    fig5a.update_layout(
+        title="Upset Probability vs. Rating Gap",
+        height=450,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    fig5a.update_xaxes(
+        title_text=f"Rating Gap (binned by {gap_bin_size})",
+        gridcolor="rgba(99,102,241,0.07)",
+    )
+    fig5a.update_yaxes(
+        title_text="Upset Rate (%)",
+        gridcolor="rgba(99,102,241,0.07)",
+        range=[0, 60],
+        secondary_y=False,
+    )
+    fig5a.update_yaxes(
+        title_text="Number of Games",
+        gridcolor="rgba(99,102,241,0.04)",
+        showgrid=False,
+        secondary_y=True,
+    )
+    st.plotly_chart(fig5a, use_container_width=True)
+
+with tab5b:
+    fig5b = go.Figure()
+    fig5b.add_trace(
+        go.Bar(
+            x=upset_by_bin["gap_bin"],
+            y=upset_by_bin["upsets"],
+            name="Upsets (Lower Rated Won)",
+            marker=dict(color="#ef4444", line=dict(color="#fca5a5", width=0.5)),
+            hovertemplate="Gap: %{x}<br>Upsets: %{y:,}<extra></extra>",
+        )
+    )
+    fig5b.add_trace(
+        go.Bar(
+            x=upset_by_bin["gap_bin"],
+            y=upset_by_bin["total"] - upset_by_bin["upsets"],
+            name="Expected (Higher Rated Won)",
+            marker=dict(color="#6366f1", line=dict(color="#818cf8", width=0.5)),
+            hovertemplate="Gap: %{x}<br>Expected: %{y:,}<extra></extra>",
+        )
+    )
+    fig5b.update_layout(**PLOTLY_LAYOUT)
+    fig5b.update_layout(
+        barmode="stack",
+        title="Upset vs. Expected Outcome Volume by Rating Gap",
+        xaxis=dict(
+            title=f"Rating Gap (binned by {gap_bin_size})",
+            gridcolor="rgba(99,102,241,0.07)",
+        ),
+        yaxis=dict(title="Number of Games", gridcolor="rgba(99,102,241,0.07)"),
+        height=450,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig5b, use_container_width=True)
+
+# Insight for Task 5
+total_upsets = (df_upsets["outcome_type"] == "Upset (Lower Rated Won)").sum()
+total_decisive = len(df_upsets)
+overall_upset_pct = total_upsets / total_decisive * 100
+close_games = df_upsets[df_upsets["rating_gap"] <= 50]
+close_upset_pct = (
+    (close_games["outcome_type"] == "Upset (Lower Rated Won)").mean() * 100
+    if len(close_games) > 0
+    else 0
+)
+big_gap = df_upsets[df_upsets["rating_gap"] >= 400]
+big_gap_upset_pct = (
+    (big_gap["outcome_type"] == "Upset (Lower Rated Won)").mean() * 100
+    if len(big_gap) > 0
+    else 0
+)
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> Overall, <strong>{overall_upset_pct:.1f}%</strong> of decisive games are upsets.
+    When players are closely matched (gap ≤ 50), it's nearly a coin flip at <strong>{close_upset_pct:.1f}%</strong>.
+    But at large gaps (≥ 400 rating), upsets drop to just <strong>{big_gap_upset_pct:.1f}%</strong> — skill dominates chaos.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 12. VIZ 6: TIME CONTROL BATTLEFIELD
+# ==========================================
+st.markdown(
+    '<div class="section-header"><span class="num">06</span> The Time Control Battlefield</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="section-desc">Does the clock decide how games end? Bullet games breed timeouts, while classical games reward deep calculation. Here we classify every game by time control and see how victory conditions shift.</div>',
+    unsafe_allow_html=True,
+)
+
+
+# Classify time controls into categories using Lichess formula
+def classify_time_control(tc_string):
+    try:
+        parts = tc_string.split("+")
+        base_sec = int(parts[0]) * 60
+        inc_sec = int(parts[1]) if len(parts) > 1 else 0
+        estimated = base_sec + 40 * inc_sec
+        if estimated < 180:
+            return "Bullet (<3m)"
+        elif estimated < 480:
+            return "Blitz (3-8m)"
+        elif estimated < 1500:
+            return "Rapid (8-25m)"
+        else:
+            return "Classical (25m+)"
+    except (ValueError, IndexError):
+        return "Other"
+
+
+df_time["tc_category"] = df_time["time_increment"].apply(classify_time_control)
+
+tc_order = ["Bullet (<3m)", "Blitz (3-8m)", "Rapid (8-25m)", "Classical (25m+)"]
+vs_order = ["mate", "resign", "outoftime", "draw"]
+vs_colors = {
+    "mate": "#ef4444",
+    "resign": "#f97316",
+    "outoftime": "#22d3ee",
+    "draw": "#a78bfa",
+}
+
+# Aggregate by category
+tc_agg = (
+    df_time.groupby(["tc_category", "victory_status"])["game_count"].sum().reset_index()
+)
+
+# Compute percentages within each tc category
+tc_totals = tc_agg.groupby("tc_category")["game_count"].sum().reset_index()
+tc_totals.columns = ["tc_category", "tc_total"]
+tc_agg = tc_agg.merge(tc_totals, on="tc_category")
+tc_agg["pct"] = tc_agg["game_count"] / tc_agg["tc_total"] * 100
+
+if time_chart_mode == "Stacked Bar":
+    fig6 = go.Figure()
+    for vs in vs_order:
+        sub = tc_agg[tc_agg["victory_status"] == vs]
+        # Ensure all categories present
+        sub = sub.set_index("tc_category").reindex(tc_order).fillna(0).reset_index()
+        fig6.add_trace(
+            go.Bar(
+                x=sub["tc_category"],
+                y=sub["pct"],
+                name=vs.title(),
+                marker=dict(
+                    color=vs_colors[vs],
+                    line=dict(color="rgba(255,255,255,0.1)", width=0.5),
+                ),
+                text=[f"{v:.1f}%" for v in sub["pct"]],
+                textposition="inside",
+                textfont=dict(
+                    color="#e6edf3" if vs != "draw" else "#0d1117",
+                    size=10,
+                    family="JetBrains Mono",
+                ),
+                hovertemplate=f"<b>{vs.title()}</b><br>%{{x}}<br>%{{y:.1f}}%<extra></extra>",
+            )
+        )
+
+    fig6.update_layout(**PLOTLY_LAYOUT)
+    fig6.update_layout(
+        barmode="stack",
+        title="How Games End by Time Control Category",
+        xaxis=dict(
+            title="Time Control",
+            categoryorder="array",
+            categoryarray=tc_order,
+        ),
+        yaxis=dict(
+            title="Percentage of Games (%)",
+            gridcolor="rgba(99,102,241,0.07)",
+            range=[0, 100],
+        ),
+        height=480,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+    )
+    st.plotly_chart(fig6, use_container_width=True)
+
+else:
+    # Heatmap mode
+    pivot = tc_agg.pivot_table(
+        index="victory_status", columns="tc_category", values="pct", fill_value=0
+    )
+    # Reorder
+    pivot = pivot.reindex(index=vs_order, columns=tc_order, fill_value=0)
+
+    fig6 = go.Figure(
+        go.Heatmap(
+            z=pivot.values,
+            x=tc_order,
+            y=[v.title() for v in vs_order],
+            colorscale=[
+                [0, "rgba(13,17,23,1)"],
+                [0.2, "#1e1b4b"],
+                [0.4, "#4338ca"],
+                [0.6, "#6366f1"],
+                [0.8, "#a78bfa"],
+                [1, "#f0abfc"],
+            ],
+            text=[[f"{v:.1f}%" for v in row] for row in pivot.values],
+            texttemplate="%{text}",
+            textfont=dict(size=13, family="JetBrains Mono", color="#e6edf3"),
+            colorbar=dict(
+                title=dict(text="%", font=dict(size=11, color="#8b949e")),
+                tickfont=dict(color="#8b949e"),
+                thickness=12,
+            ),
+            hovertemplate="<b>%{y}</b> in <b>%{x}</b><br>%{z:.1f}% of games<extra></extra>",
+        )
+    )
+    fig6.update_layout(**PLOTLY_LAYOUT)
+    fig6.update_layout(
+        title="Victory Status Heatmap by Time Control",
+        xaxis=dict(title="Time Control"),
+        yaxis=dict(title=""),
+        height=380,
+    )
+    st.plotly_chart(fig6, use_container_width=True)
+
+# Insight for Task 6
+bullet_timeout = tc_agg[
+    (tc_agg["tc_category"] == "Bullet (<3m)")
+    & (tc_agg["victory_status"] == "outoftime")
+]
+classical_mate = tc_agg[
+    (tc_agg["tc_category"] == "Classical (25m+)") & (tc_agg["victory_status"] == "mate")
+]
+bullet_to_pct = float(bullet_timeout["pct"].values[0]) if len(bullet_timeout) > 0 else 0
+classical_m_pct = (
+    float(classical_mate["pct"].values[0]) if len(classical_mate) > 0 else 0
+)
+
+st.markdown(
+    f"""<div class="insight-box">
+    💡 <strong>Key Insight:</strong> In Bullet games, <strong>{bullet_to_pct:.1f}%</strong> end on time —
+    the clock is as dangerous as the opponent. In Classical games, checkmates account for
+    <strong>{classical_m_pct:.1f}%</strong> of outcomes. As time pressure decreases, the game
+    becomes more about pure chess skill and less about speed.
+</div>""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="epic-divider"></div>', unsafe_allow_html=True)
+
+# ==========================================
+# 13. BONUS: RADAR CHART — Opening Profiles
 # ==========================================
 st.markdown(
     '<div class="section-header"><span class="num">✦</span> Bonus: Opening DNA Profiles</div>',
