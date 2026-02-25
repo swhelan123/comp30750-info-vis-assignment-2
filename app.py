@@ -1,8 +1,9 @@
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from plotly.subplots import make_subplots  # noqa: used by upset chart
+from plotly.subplots import make_subplots
 
 # -- page config --
 st.set_page_config(
@@ -388,17 +389,21 @@ with st.sidebar:
         help="Filter by absolute rating gap between players",
     )
 
+    heatmap_view = st.radio(
+        "Heatmap View",
+        ["Combined", "Split by Outcome"],
+        index=0,
+        help="Show a single combined heatmap or separate heatmaps per game-end reason. In split mode, hovering over any cell shows counts for all outcome types at that location.",
+    )
+
     st.markdown("---")
     st.markdown("### 🫧 Task 3 Options")
     top_n_openings = st.slider(
-        "Number of Openings",
+        "Top N Most-Played Openings",
         min_value=5,
         max_value=15,
         value=12,
-        help="How many openings to display",
-    )
-    show_draw_rates = st.checkbox(
-        "Show Draw Rates", value=False, help="Overlay draw rates on the chart"
+        help="Select the N most frequently played openings in the dataset. They are then ranked by White win rate on the chart.",
     )
 
     st.markdown("---")
@@ -452,61 +457,240 @@ filtered_scatter = df_scatter[
     & (df_scatter["rating_diff"].abs() <= rating_diff_range[1])
 ]
 
-fig1 = go.Figure()
-fig1.add_trace(
-    go.Histogram2d(
-        x=filtered_scatter["rating_diff"],
-        y=filtered_scatter["turns"],
-        colorscale=[
-            [0, "rgba(255,255,255,0)"],
-            [0.05, "#eef2ff"],
-            [0.15, "#c7d2fe"],
-            [0.3, "#a5b4fc"],
-            [0.5, "#6366f1"],
-            [0.7, "#4f46e5"],
-            [0.9, "#3730a3"],
-            [1, "#1e1b4b"],
-        ],
-        nbinsx=100,
-        nbinsy=80,
-        colorbar=dict(
-            title=dict(text="Games", font=dict(size=11, color="#64748b")),
-            tickfont=dict(color="#64748b"),
-            thickness=12,
-            len=0.6,
-        ),
-        hovertemplate="Rating Diff: %{x}<br>Turns: %{y}<br>Count: %{z}<extra></extra>",
+if heatmap_view == "Combined":
+    # ---- single combined heatmap (original view) ----
+    fig1 = go.Figure()
+    fig1.add_trace(
+        go.Histogram2d(
+            x=filtered_scatter["rating_diff"],
+            y=filtered_scatter["turns"],
+            colorscale=[
+                [0, "rgba(255,255,255,0)"],
+                [0.05, "#eef2ff"],
+                [0.15, "#c7d2fe"],
+                [0.3, "#a5b4fc"],
+                [0.5, "#6366f1"],
+                [0.7, "#4f46e5"],
+                [0.9, "#3730a3"],
+                [1, "#1e1b4b"],
+            ],
+            nbinsx=100,
+            nbinsy=80,
+            colorbar=dict(
+                title=dict(text="Games", font=dict(size=11, color="#64748b")),
+                tickfont=dict(color="#64748b"),
+                thickness=12,
+                len=0.6,
+            ),
+            hovertemplate="Rating Diff: %{x}<br>Turns: %{y}<br>Count: %{z}<extra></extra>",
+        )
     )
-)
 
-fig1.update_layout(**PLOTLY_LAYOUT)
-fig1.update_layout(
-    title="Game Length vs. Skill Gap: Where Do Games Concentrate?",
-    xaxis=dict(
-        title="Rating Differential (White − Black)",
-        gridcolor="rgba(0,0,0,0.04)",
-        zeroline=True,
-        zerolinecolor="rgba(0,0,0,0.12)",
-        zerolinewidth=1,
-    ),
-    yaxis=dict(
-        title="Number of Turns",
-        gridcolor="rgba(0,0,0,0.04)",
-    ),
-    height=520,
-)
-# highlight the zone where players are roughly equal
-fig1.add_vrect(
-    x0=-50,
-    x1=50,
-    fillcolor="rgba(79,70,229,0.04)",
-    layer="below",
-    line_width=0,
-    annotation_text="Evenly Matched",
-    annotation_position="top",
-    annotation_font=dict(size=10, color="#4f46e5"),
-)
-st.plotly_chart(fig1, use_container_width=True)
+    fig1.update_layout(**PLOTLY_LAYOUT)
+    fig1.update_layout(
+        title="Game Length vs. Skill Gap: Where Do Games Concentrate?",
+        xaxis=dict(
+            title="Rating Differential (White − Black)",
+            gridcolor="rgba(0,0,0,0.04)",
+            zeroline=True,
+            zerolinecolor="rgba(0,0,0,0.12)",
+            zerolinewidth=1,
+        ),
+        yaxis=dict(
+            title="Number of Turns",
+            gridcolor="rgba(0,0,0,0.04)",
+        ),
+        height=520,
+    )
+    fig1.add_vrect(
+        x0=-50,
+        x1=50,
+        fillcolor="rgba(79,70,229,0.04)",
+        layer="below",
+        line_width=0,
+        annotation_text="Evenly Matched",
+        annotation_position="top",
+        annotation_font=dict(size=10, color="#4f46e5"),
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+else:
+    # ---- split heatmaps by victory_status with cross-panel tooltips ----
+    _SPLIT_STATUS_COLORS = {
+        "mate": [
+            [0, "rgba(255,255,255,0)"],
+            [0.05, "#fef2f2"],
+            [0.15, "#fecaca"],
+            [0.3, "#fca5a5"],
+            [0.5, "#ef4444"],
+            [0.7, "#dc2626"],
+            [0.9, "#b91c1c"],
+            [1, "#7f1d1d"],
+        ],
+        "resign": [
+            [0, "rgba(255,255,255,0)"],
+            [0.05, "#fff7ed"],
+            [0.15, "#fed7aa"],
+            [0.3, "#fdba74"],
+            [0.5, "#f97316"],
+            [0.7, "#ea580c"],
+            [0.9, "#c2410c"],
+            [1, "#7c2d12"],
+        ],
+        "outoftime": [
+            [0, "rgba(255,255,255,0)"],
+            [0.05, "#ecfeff"],
+            [0.15, "#a5f3fc"],
+            [0.3, "#67e8f9"],
+            [0.5, "#22d3ee"],
+            [0.7, "#06b6d4"],
+            [0.9, "#0891b2"],
+            [1, "#155e75"],
+        ],
+        "draw": [
+            [0, "rgba(255,255,255,0)"],
+            [0.05, "#f5f3ff"],
+            [0.15, "#ddd6fe"],
+            [0.3, "#c4b5fd"],
+            [0.5, "#a78bfa"],
+            [0.7, "#8b5cf6"],
+            [0.9, "#7c3aed"],
+            [1, "#4c1d95"],
+        ],
+    }
+
+    _SPLIT_STATUS_LABELS = {
+        "mate": "Checkmate",
+        "resign": "Resignation",
+        "outoftime": "Out of Time",
+        "draw": "Draw",
+    }
+
+    _SPLIT_STATUS_ORDER = ["draw", "mate", "resign", "outoftime"]
+    active_statuses = [
+        s
+        for s in _SPLIT_STATUS_ORDER
+        if s in filtered_scatter["victory_status"].unique()
+    ]
+
+    if len(active_statuses) == 0:
+        st.info("No games match the current filters.")
+    else:
+        # --- pre-compute shared 2-D bins across all statuses ---
+        x_vals = filtered_scatter["rating_diff"].values
+        y_vals = filtered_scatter["turns"].values
+        nbx, nby = 60, 50
+        x_edges = np.linspace(x_vals.min(), x_vals.max(), nbx + 1)
+        y_edges = np.linspace(y_vals.min(), y_vals.max(), nby + 1)
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+
+        status_grids: dict[str, np.ndarray] = {}
+        for s in active_statuses:
+            mask = (filtered_scatter["victory_status"] == s).values
+            H, _, _ = np.histogram2d(
+                x_vals[mask], y_vals[mask], bins=[x_edges, y_edges]
+            )
+            status_grids[s] = H.T  # shape (nby, nbx)
+
+        # --- subplot grid: single row, all panels side by side ---
+        n = len(active_statuses)
+        ncols = n
+        nrows = 1
+
+        fig1 = make_subplots(
+            rows=1,
+            cols=ncols,
+            subplot_titles=[
+                _SPLIT_STATUS_LABELS.get(s, s.capitalize()) for s in active_statuses
+            ],
+            shared_xaxes=True,
+            shared_yaxes=True,
+            horizontal_spacing=0.04,
+        )
+
+        for idx, s in enumerate(active_statuses):
+            row = 1
+            col = idx + 1
+
+            z = status_grids[s]
+
+            # build customdata with counts from every *other* status
+            other_statuses = [os for os in active_statuses if os != s]
+            if other_statuses:
+                cd = np.stack([status_grids[os] for os in other_statuses], axis=-1)
+            else:
+                cd = np.zeros((*z.shape, 1))
+
+            # hover template: show this panel's count bolded, plus all others
+            ht_lines = [
+                "Rating Diff: %{x:.0f}<br>Turns: %{y:.0f}<br>",
+                f"<b>{_SPLIT_STATUS_LABELS.get(s, s.capitalize())}: %{{z:.0f}}</b>",
+            ]
+            for i, os in enumerate(other_statuses):
+                ht_lines.append(
+                    f"{_SPLIT_STATUS_LABELS.get(os, os.capitalize())}: %{{customdata[{i}]:.0f}}"
+                )
+            hovertemplate = "<br>".join(ht_lines) + "<extra></extra>"
+
+            fig1.add_trace(
+                go.Heatmap(
+                    z=z,
+                    x=x_centers,
+                    y=y_centers,
+                    colorscale=_SPLIT_STATUS_COLORS.get(
+                        s,
+                        [
+                            [0, "rgba(255,255,255,0)"],
+                            [0.5, "#6366f1"],
+                            [1, "#1e1b4b"],
+                        ],
+                    ),
+                    customdata=cd,
+                    hovertemplate=hovertemplate,
+                    showscale=False,
+                    name=_SPLIT_STATUS_LABELS.get(s, s.capitalize()),
+                ),
+                row=row,
+                col=col,
+            )
+
+        fig1.update_layout(**PLOTLY_LAYOUT)
+        fig1.update_layout(
+            title="Game Length vs. Skill Gap — Split by Outcome",
+            height=500,
+            hovermode="closest",
+        )
+
+        # enable cross-subplot spike lines (crosshairs) on every axis
+        fig1.update_xaxes(
+            showspikes=True,
+            spikemode="across",
+            spikesnap="cursor",
+            spikethickness=1,
+            spikecolor="#94a3b8",
+            spikedash="dot",
+            gridcolor="rgba(0,0,0,0.04)",
+        )
+        fig1.update_yaxes(
+            showspikes=True,
+            spikemode="across",
+            spikesnap="cursor",
+            spikethickness=1,
+            spikecolor="#94a3b8",
+            spikedash="dot",
+            gridcolor="rgba(0,0,0,0.04)",
+        )
+
+        # x-axis label on every panel (single row, all visible)
+        for col_idx in range(1, ncols + 1):
+            x_key = "xaxis" if col_idx == 1 else f"xaxis{col_idx}"
+            fig1.update_layout(**{x_key: dict(title="Rating Diff (White − Black)")})
+
+        # y-axis label only on the first (leftmost) panel
+        fig1.update_layout(yaxis=dict(title="Number of Turns"))
+
+        st.plotly_chart(fig1, use_container_width=True)
 
 # quick stats for the insight box
 mate_games = filtered_scatter[filtered_scatter["victory_status"] == "mate"]
@@ -681,7 +865,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="section-desc">White has the initiative to dictate the opening. Do certain openings amplify the first-move advantage more than others? This section compares White\'s win rate across the most popular openings. Bubble size encodes popularity (i.e. how frequently each opening is played).</div>',
+    '<div class="section-desc">White has the initiative to dictate the opening. Do certain openings amplify the first-move advantage more than others? The slider selects the <strong>N most popular openings</strong> (ranked by total number of games played). Those openings are then displayed ordered by White\'s win rate so you can compare effectiveness across the most common choices. Bubble size encodes game count and colour indicates the opening type (1.e4, 1.d4, or Flank / Irregular).</div>',
     unsafe_allow_html=True,
 )
 
@@ -712,63 +896,107 @@ for name in df_openings["opening_name"].unique():
 df_ops = pd.DataFrame(opening_stats).sort_values("total_games", ascending=False)
 df_ops_top = df_ops.head(top_n_openings).sort_values("white_wr", ascending=True)
 
+
+# classify openings by first-move type
+def classify_opening_type(name):
+    """Classify an opening name into 1.e4, 1.d4, or Flank/Irregular."""
+    e4_keywords = [
+        "Sicilian",
+        "French",
+        "Caro-Kann",
+        "Scandinavian",
+        "Italian",
+        "Scotch",
+        "Philidor",
+        "Ruy Lopez",
+        "Petrov",
+        "Pirc",
+        "Alekhine",
+        "King's Gambit",
+        "Vienna",
+        "Bishop's Opening",
+    ]
+    d4_keywords = [
+        "Queen's Pawn",
+        "Queen's Gambit",
+        "Indian",
+        "Slav",
+        "Dutch",
+        "Benoni",
+        "Grunfeld",
+        "Nimzo",
+        "Bogo",
+        "Catalan",
+        "Trompowsky",
+        "London",
+        "Torre",
+        "Colle",
+    ]
+    for kw in e4_keywords:
+        if kw.lower() in name.lower():
+            return "1.e4"
+    for kw in d4_keywords:
+        if kw.lower() in name.lower():
+            return "1.d4"
+    return "Flank / Irregular"
+
+
+df_ops_top["opening_type"] = df_ops_top["opening"].apply(classify_opening_type)
+
+OPENING_TYPE_COLORS = {
+    "1.e4": "#e11d48",
+    "1.d4": "#2563eb",
+    "Flank / Irregular": "#16a34a",
+}
+
 fig3 = go.Figure()
 
 # lollipop stalks — horizontal lines from 50% to each data point
 for _, row in df_ops_top.iterrows():
+    stalk_color = OPENING_TYPE_COLORS[row["opening_type"]]
     fig3.add_shape(
         type="line",
         x0=50,
         x1=row["white_wr"],
         y0=row["opening"],
         y1=row["opening"],
-        line=dict(color="rgba(99,102,241,0.3)", width=3),
+        line=dict(color=stalk_color, width=3, dash="solid"),
         layer="below",
+        opacity=0.25,
     )
 
-# bubble markers with diverging color scale (cmid = 50)
-fig3.add_trace(
-    go.Scatter(
-        x=df_ops_top["white_wr"],
-        y=df_ops_top["opening"],
-        mode="markers+text",
-        marker=dict(
-            size=df_ops_top["total_games"] / df_ops_top["total_games"].max() * 45 + 12,
-            color=df_ops_top["white_wr"],
-            colorscale="RdYlGn",
-            cmid=50,
-            cmin=min(df_ops_top["white_wr"].min(), 50 - 5),
-            cmax=max(df_ops_top["white_wr"].max(), 50 + 5),
-            colorbar=dict(
-                title=dict(text="White WR%", font=dict(size=11, color="#64748b")),
-                tickfont=dict(color="#64748b"),
-                thickness=12,
-                len=0.6,
+# one trace per opening type so the legend shows categories
+max_games = df_ops_top["total_games"].max()
+for op_type in ["1.e4", "1.d4", "Flank / Irregular"]:
+    subset = df_ops_top[df_ops_top["opening_type"] == op_type]
+    if subset.empty:
+        continue
+    color = OPENING_TYPE_COLORS[op_type]
+    fig3.add_trace(
+        go.Scatter(
+            x=subset["white_wr"],
+            y=subset["opening"],
+            mode="markers+text",
+            name=op_type,
+            legendgroup=op_type,
+            marker=dict(
+                size=subset["total_games"] / max_games * 45 + 12,
+                color=color,
+                line=dict(color="#ffffff", width=2),
             ),
-            line=dict(color="#ffffff", width=2),
-        ),
-        text=[
-            f" {wr:.1f}%  ({g:,} games)"
-            for wr, g in zip(df_ops_top["white_wr"], df_ops_top["total_games"])
-        ],
-        textposition="middle right",
-        textfont=dict(color="#334155", size=10, family="IBM Plex Mono"),
-        hovertemplate="<b>%{y}</b><br>White WR: %{x:.1f}%<br>Games: %{customdata:,}<extra></extra>",
-        customdata=df_ops_top["total_games"],
-    )
-)
-
-if show_draw_rates:
-    for _, row in df_ops_top.iterrows():
-        fig3.add_annotation(
-            x=row["white_wr"],
-            y=row["opening"],
-            text=f"½ {row['draw_rate']:.1f}%",
-            showarrow=False,
-            xanchor="left",
-            xshift=55,
-            font=dict(color="#d97706", size=9, family="IBM Plex Mono"),
+            text=[
+                f" {wr:.1f}%"
+                for wr, _ in zip(subset["white_wr"], subset["total_games"])
+            ],
+            textposition="middle right",
+            textfont=dict(color="#334155", size=10, family="IBM Plex Mono"),
+            hovertemplate="<b>%{y}</b><br>Type: "
+            + op_type
+            + "<br>White WR: %{x:.1f}%<br>Games: %{customdata:,}<extra></extra>",
+            customdata=subset["total_games"],
         )
+    )
+
 
 # 50% reference line — strong and clear
 fig3.add_vline(
@@ -799,7 +1027,15 @@ fig3.add_vrect(
 
 fig3.update_layout(**PLOTLY_LAYOUT)
 fig3.update_layout(
-    title="White Win Rate by Opening (bubble size = popularity, sorted by win rate)",
+    title="White Win Rate by Opening (colour = opening type, size = popularity)",
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.05,
+        xanchor="center",
+        x=0.5,
+        title=dict(text="Opening Type  ", font=dict(size=11)),
+    ),
     xaxis=dict(
         title="White Win Rate (%)",
         gridcolor="rgba(0,0,0,0.04)",
